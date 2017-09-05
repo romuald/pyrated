@@ -61,7 +61,7 @@ uint64_t truenaow() {
 }
 
 static uint64_t NOW = 0;
-uint64_t naow() {return NOW;}
+uint64_t naow() {return truenaow();}
 
 
 void *coucou() {
@@ -177,16 +177,16 @@ int main() {
 
 	int OUTTER = 50000;
 	int SIZE = 5;
-	int INNER = 10000;
+	int INNER = 1000;
 
 	struct timeval timecheck;
 
-	pthread_create(&thread0, NULL, coucou, NULL);
+	//pthread_create(&thread0, NULL, coucou, NULL);
 	
 	start = truenaow();
 	Pia *pia;
 	if ( 1 ) {
-		for (i = 0, j=0; i < OUTTER;i++) {
+		for (i = 0; i < OUTTER;i++) {
 			pia = init(SIZE, 100);
 			for (j=0;j < INNER; j++) {
 				increment(pia);
@@ -221,7 +221,7 @@ int main() {
 	for (int i =0; i<SIZE; i++) {
 		printf("%d: %ld\n", i, pia->hits[i]);
 	}*/
-	printf("%llu ms elapsed (%f op/s)\n", (end - start), (double)(OUTTER * INNER / (end - start)));
+	printf("%llu ms elapsed (%d op/s)\n", (end - start), ((OUTTER * INNER) / (end - start)  * 1000));
 
 	sleep(10);
 
