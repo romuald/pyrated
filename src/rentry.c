@@ -1,0 +1,240 @@
+#include <Python.h>
+#include "structmember.h"
+
+#include <time.h>
+#include <sys/time.h>
+
+#ifdef __APPLE__
+#include <mach/mach_time.h>
+#endif
+
+#define REBASE_TIME UINT32_MAX / 2
+
+typedef struct {
+    PyObject_HEAD
+
+    /* Type-specific fields go here. */
+    uint64_t base;     // Base monotonic timestamp
+    uint32_t current;  // Current element in *hits
+    uint32_t csize;    // Currently allocated *hits size
+    uint32_t bsize;    // By how much *hits will grow until it reaches max size
+    uint32_t *hits;
+} Rentry;
+
+
+uint64_t naow() {
+#ifdef __APPLE__
+    uint64_t absolute = mach_absolute_time() / (1000 * 1000);
+
+    static mach_timebase_info_data_t sTimebaseInfo;
+    if ( sTimebaseInfo.denom == 0 ) {
+        mach_timebase_info(&sTimebaseInfo);
+    }
+
+    if ( sTimebaseInfo.numer == 1 && sTimebaseInfo.denom == 1) {
+        return absolute;
+    }
+
+    return absolute * sTimebaseInfo.numer / sTimebaseInfo.denom;
+
+#else
+    struct timespec timecheck;
+
+    clock_gettime(CLOCK_MONOTONIC, &timecheck);
+    return (uint64_t)timecheck.tv_sec * 1000 + (uint64_t)timecheck.tv_nsec / (1000 * 1000);
+#endif
+}
+
+static PyObject *
+Rentry_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    Rentry *self;
+
+    self = (Rentry *)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->base = 0;
+        self->current = 0;
+        self->csize = 0;
+        self->bsize = 0;
+        self->hits = NULL;
+    }
+
+    return (PyObject *)self;
+}
+
+static int
+Rentry_init(Rentry *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = {"block_size", NULL};
+
+     if (! PyArg_ParseTupleAndKeywords(args, kwds, "|I", kwlist, &self->bsize))
+        return -1;
+
+    if (self->bsize == 0) {
+        self->bsize = 10; // XXX use ratio
+    }
+
+    return 0;
+}
+
+static void
+Rentry_dealloc(Rentry* self)
+{
+    free(self->hits);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+
+static PyObject *
+Rentry_hit(Rentry* self, PyObject *args)
+{
+    uint32_t size, delay;
+    if (! PyArg_ParseTuple(args, "II", &size, &delay))
+        return NULL;
+
+    uint64_t now = naow();
+
+    if ( self->base == 0 ) {
+        self->base = now - 1;
+    }
+    printf("Meh? %d %d\n", size, delay);
+
+    if ( self->current == self->csize ) {
+        uint32_t i, new_size = (self->csize + self->bsize);
+        //printf("realloc %d -> %d\n", self->csize, new_size);
+        // XXX check NULL (realloc fail)
+        self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));;
+        // Unable to use memset properly
+        //memset(self->hits + self->csize * sizeof(self->hits[0]), 0, self->bsize);
+        for ( i = self->csize; i < new_size; i++ ) {
+            self->hits[i] = 0;
+        }
+        
+        self->csize = new_size;
+    }
+
+    if ( now - self->base > REBASE_TIME ) {
+        //printf("rehash, now=%llu, base=%llu, dd=%llu, z==%d\n", now, pia->base, now-pia->base, z);
+        uint32_t i;
+        uint64_t min = 0;
+
+        for ( i=0; i < self->csize; i ++) {
+            if ( min != 0 && self->hits[i] != 0 && self->hits[i] < min ) {
+                min = self->hits[i];
+            }
+        }
+
+        uint64_t new_base = now - min - 1;
+        uint32_t delta = (new_base - self->base);
+        for ( i=0; i < self->csize; i++ ) {
+            if ( self->hits[i] != 0 ) {
+                self->hits[i] = delta + self->hits[i];
+            }
+        }
+        self->base = new_base;
+    }
+
+    now -= self->base;
+
+    uint64_t last = self->hits[self->current];
+    //printf("Check, base=%llu, current=%u now=%llu, last=%llu ", self->base, self->current, now, last);
+    //printf("Hit, now=%ld, last=%ld\n", now, last);
+
+    if ( last != 0 && (now - last) < delay ) {
+        Py_INCREF(Py_False);
+        return Py_False;
+    }
+
+    self->hits[self->current] = now;
+    if ( self->current == size - 1 ) {
+        self->current = 0;
+    } else {
+        self->current++;
+    }
+
+    Py_INCREF(Py_True);
+    return Py_True;
+}
+
+
+static PyMethodDef Rentry_methods[] = {
+    {"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
+     "Hit me"
+    },
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef Rentry_members[] = {
+    /*{"zoub", T_INT, offsetof(Rentry, zoub), READONLY,
+     "A zoub"},*/
+    {NULL}  /* Sentinel */
+};
+
+
+static PyTypeObject pyrated_RentryType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "pyrated.rentry.Rentry",      /* tp_name */
+    sizeof(Rentry),               /* tp_basicsize */
+    0,                            /* tp_itemsize */
+    (destructor)Rentry_dealloc,   /* tp_dealloc */
+    0,                            /* tp_print */
+    0,                            /* tp_getattr */
+    0,                            /* tp_setattr */
+    0,                            /* tp_reserved */
+    0,                            /* tp_repr */
+    0,                            /* tp_as_number */
+    0,                            /* tp_as_sequence */
+    0,                            /* tp_as_mapping */
+    0,                            /* tp_hash  */
+    0,                            /* tp_call */
+    0,                            /* tp_str */
+    0,                            /* tp_getattro */
+    0,                            /* tp_setattro */
+    0,                            /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,           /* tp_flags */
+    "pyrated Rentry objects",     /* tp_doc */
+    0,                            /* tp_traverse */
+    0,                            /* tp_clear */
+    0,                            /* tp_richcompare */
+    0,                            /* tp_weaklistoffset */
+    0,                            /* tp_iter */
+    0,                            /* tp_iternext */
+    Rentry_methods,               /* tp_methods */
+    Rentry_members,               /* tp_members */
+    0,                            /* tp_getset */
+    0,                            /* tp_base */
+    0,                            /* tp_dict */
+    0,                            /* tp_descr_get */
+    0,                            /* tp_descr_set */
+    0,                            /* tp_dictoffset */
+    (initproc)Rentry_init,        /* tp_init */
+    0,                            /* tp_alloc */
+    Rentry_new,                   /* tp_new */
+};
+
+
+static PyModuleDef rentrymodule = {
+    PyModuleDef_HEAD_INIT,
+    "pyrated.rentry",
+    "Example module that creates an extension type.",
+    -1,
+    NULL, NULL, NULL, NULL, NULL
+};
+
+PyMODINIT_FUNC
+PyInit_rentry(void)
+{
+    PyObject* m;
+
+    pyrated_RentryType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&pyrated_RentryType) < 0)
+        return NULL;
+
+    m = PyModule_Create(&rentrymodule);
+    if (m == NULL)
+        return NULL;
+
+    Py_INCREF(&pyrated_RentryType);
+    PyModule_AddObject(m, "Rentry", (PyObject *)&pyrated_RentryType);
+    return m;
+}
