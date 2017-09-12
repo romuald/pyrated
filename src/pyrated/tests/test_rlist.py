@@ -160,3 +160,26 @@ class TestRlist(unittest.TestCase):
             fake.value += 1
             rl.cleanup()
             assert len(rl) == 0
+
+    def test_time_rebase(self):
+        # Test that the internal "rebase" of time base works
+        # (avoid uint32 overflow)
+        # The maximum milliseconds storable in a uint32 is around 49 days
+        HALFDAY = int((86400 * 1000) / 2)
+
+        # 2 hits per day, for 70 days
+        rl = RatelimitList(2, HALFDAY * 2 / 1000)
+
+        with FakeTime() as fake:
+            for i in range(70):
+                # first hit of the day works
+                assert rl.hit('foo') is True
+                fake += HALFDAY
+
+                # second hit 12 hours after works
+                assert rl.hit('foo') is True
+                fake += 1000
+
+                # Third hit 1 second after doesn't
+                assert rl.hit('foo') is False
+                fake += HALFDAY - 1000
