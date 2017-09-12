@@ -3,12 +3,15 @@
 
 #include <time.h>
 #include <sys/time.h>
+#include <stdbool.h>
 
 #ifdef __APPLE__
 #include <mach/mach_time.h>
 #endif
 
 #define REBASE_TIME UINT32_MAX / 2
+
+static uint64_t FAKE_NOW = 0;
 
 typedef struct {
     PyObject_HEAD
@@ -23,6 +26,11 @@ typedef struct {
 
 
 uint64_t naow() {
+    // Used for unit tests
+    if ( FAKE_NOW != 0 ) {
+        return FAKE_NOW;
+    }
+
 #ifdef __APPLE__
     uint64_t absolute = mach_absolute_time() / (1000 * 1000);
 
@@ -43,6 +51,11 @@ uint64_t naow() {
     clock_gettime(CLOCK_MONOTONIC, &timecheck);
     return (uint64_t)timecheck.tv_sec * 1000 + (uint64_t)timecheck.tv_nsec / (1000 * 1000);
 #endif
+}
+
+static PyObject *
+pynaow(PyObject *cls, PyObject *args) {
+    return PyLong_FromLong(naow());
 }
 
 static PyObject *
@@ -97,7 +110,6 @@ Rentry_hit(Rentry* self, PyObject *args)
     if ( self->base == 0 ) {
         self->base = now - 1;
     }
-    printf("Meh? %d %d\n", size, delay);
 
     if ( self->current == self->csize ) {
         uint32_t i, new_size = (self->csize + self->bsize);
@@ -156,15 +168,49 @@ Rentry_hit(Rentry* self, PyObject *args)
     return Py_True;
 }
 
+static PyObject *
+Rentry_is_expired(Rentry* self, PyObject *args)
+{
+    uint64_t now;
+    uint32_t delay;
+
+    if (! PyArg_ParseTuple(args, "KI", &now, &delay))
+        return NULL;
+
+    PyObject *result;
+
+    if ( self->csize == 0 ) {
+        result = Py_True;
+    } else {
+
+        uint32_t index = 
+            self->current == 0 ? self->csize - 1 : self->current - 1;
+        uint64_t expires_at = self->base + self->hits[index] + delay;
+
+        result = expires_at < now ? Py_True : Py_False;
+        
+        //printf("E? base=%llu, now=%llu, i=%d, previous=%d, expired=%c\n",
+        //   self->base, now, index, self->hits[index], result == Py_True ? 'y': 'n');
+    }
+
+    Py_INCREF(result);
+
+    return result;
+}
 
 static PyMethodDef Rentry_methods[] = {
     {"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
      "Hit me"
     },
+    {"is_expired", (PyCFunction)Rentry_is_expired, METH_VARARGS,
+     "Is entry expired?"},
+
     {NULL}  /* Sentinel */
 };
 
 static PyMemberDef Rentry_members[] = {
+    {"current", T_INT, offsetof(Rentry, current), 0,
+     "noddy number"},
     /*{"zoub", T_INT, offsetof(Rentry, zoub), READONLY,
      "A zoub"},*/
     {NULL}  /* Sentinel */
@@ -213,12 +259,91 @@ static PyTypeObject pyrated_RentryType = {
 };
 
 
+static PyObject *
+get_fake_now(PyObject *cls, PyObject *args) {
+    return PyLong_FromLong(FAKE_NOW);
+}
+static PyObject *
+set_fake_now(PyObject *cls, PyObject *args) {
+    if (! PyArg_ParseTuple(args, "K", &FAKE_NOW) )
+        return NULL;
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+static PyObject *
+cleanup_dict(PyObject *cls, PyObject *args) {
+    PyObject *dict;
+    uint32_t delay;
+    if (! PyArg_ParseTuple(args, "OI", &dict, &delay) )
+        return NULL;
+    
+    PyObject *key, *value = NULL;
+    Py_ssize_t pos = 0;
+
+    const uint32_t BSIZE = 512; // Allocation block size for to_delete array
+    uint32_t size = BSIZE;
+    uint32_t count = 0;
+
+    PyObject **to_delete = calloc(sizeof(PyObject*), size);
+
+    const uint64_t now = naow();
+
+    while (PyDict_Next(dict, &pos, &key, &value)) {
+        Rentry *self = (Rentry*) value;
+
+        if ( self->csize == 0 ) {
+            // ADD
+
+        } else {
+            uint32_t index = 
+                self->current == 0 ? self->csize - 1 : self->current - 1;
+            uint64_t expires_at = self->base + self->hits[index] + delay;
+
+            if ( expires_at <= now ) {
+                // ADD
+            } else {
+                continue;
+            }
+        }
+
+        // Bounds of array reached
+        if ( count == size ) {
+            size += BSIZE;
+            to_delete = realloc(to_delete, size * sizeof(PyObject*));
+        }
+        to_delete[count++] = key;
+        // printf("%zd, %s\n", pos, PyUnicode_AsUTF8(key));
+    }
+
+    for ( Py_ssize_t i = 0; i < count; i++) {
+        PyDict_DelItem(dict, to_delete[i]);
+    }
+
+    free(to_delete);
+    //Py_DECREF(dict);
+    
+    return PyLong_FromLong((long)count);
+}
+
+static PyMethodDef ModuleMethods[] = {
+    {"_set_fake_now",  set_fake_now, METH_VARARGS,
+     "Meh"},
+    {"_get_fake_now",  get_fake_now, METH_NOARGS,
+     "Meh"},
+    {"now", (PyCFunction)pynaow, METH_NOARGS, "Monotonic now"},
+    {"cleanup_dict", cleanup_dict, METH_VARARGS, "Mehmh"},
+    {NULL}        /* Sentinel */
+};
+
 static PyModuleDef rentrymodule = {
     PyModuleDef_HEAD_INIT,
-    "pyrated.rentry",
-    "Example module that creates an extension type.",
-    -1,
-    NULL, NULL, NULL, NULL, NULL
+    .m_name = "pyrated.rentry",
+    .m_doc = "Example module that creates an extension type.",
+    .m_size = -1,
+    .m_methods = ModuleMethods,
 };
 
 PyMODINIT_FUNC
@@ -234,7 +359,9 @@ PyInit_rentry(void)
     if (m == NULL)
         return NULL;
 
+
     Py_INCREF(&pyrated_RentryType);
     PyModule_AddObject(m, "Rentry", (PyObject *)&pyrated_RentryType);
+
     return m;
 }

@@ -26,51 +26,52 @@ class MemcachedServerProtocol(asyncio.Protocol):
         self.transport = transport
         self.buffer = b''
 
-        remote = transport.get_extra_info('peername')[0]
-        print('New connection from {}'.format(remote))
+        # remote = transport.get_extra_info('peername')[0]
 
     def handle_line(self, line):
         command, *args = line.split(' ')
 
         print('Command: {}, args={!r}'.format(command, []))
 
-        if command == 'get':
-            return self.handle_get(*args)
-
         if command == 'incr':
             return self.handle_incr(*args)
+
+        if command == 'get':
+            return self.handle_get(*args)
 
         if command == 'delete':
             return self.handle_delete(*args)
 
         self.transport.write(b'ERROR unknown command\r\n')
 
-
     def handle_get(self, *keys):
-        print("get", ', '.join(keys))
-
-        sendback = ''
-        for key in set(keys).intersection(self.rlist):
+        lines = []
+        for key in filter(self.rlist.__contains__, keys):
             value = str(self.rlist.get(key))
-            sendback += 'VALUE %s 0 %d %s\r\n' % (key, len(value), value)
-        self.transport.write((sendback + 'END\r\n').encode())
+            lines.append('VALUE %s 0 %d %s' % (key, len(value), value))
 
-    def handle_incr(self, key, *args):
-        print("incr", key)
+        self.transport.write('\r\n'.join(lines).encode() + b'\r\nEND\r\n')
 
+    def handle_incr(self, key, value=0, noreply=None, *args):
         ret = b'0' if self.rlist.hit(key) else b'1'
+
+        if noreply == 'noreply':
+            return
 
         self.transport.write(ret + b'\r\n')
 
 
     def handle_delete(self, key, noreply=None):
         print("delete", key)
+        removed = self.rlist.remove(key)
 
-        if self.rlist.remove(key):
+        if noreply == 'noreply':
+            return
+
+        if removed:
             self.transport.write(b'DELETED\r\n')
         else:
             self.transport.write(b'NOT_FOUND\r\n')
-
 
 
     def data_received(self, data):
@@ -79,30 +80,17 @@ class MemcachedServerProtocol(asyncio.Protocol):
         lines = (self.buffer + data).split(b'\n')
 
         for line in lines[:-1]:
+            # XXX try except?
             self.handle_line(line.rstrip().decode())
 
         # '' in most cases, data left to read in others
         self.buffer = lines[-1]
+
+        # That's a very big line, cut connection
+        if len(self.buffer) > 8096:
+            self.transport.close()
         
         return
-        for line in data.decode().rstrip().split('\n'):
-            try:
-                line = line.rstrip()
-                if not line:
-                    self.transport.write(b'ERROR')
-                    continue
-
-                command, key, *args = line.split(' ', 2)
-
-                print('Command {} with {}'.format(command, key))
-                if command == 'incr':
-                    self.transport.write(b'0\r\n')
-                    continue
-                self.transport.write(b'ERROR ?')
-            except Exception as err:
-                print('ERROR %r' % err)
-                self.transport.write(b'SERVER_ERROR Internal server error\r\n')
-                raise
 
 
 def sighandle(loop, server):
@@ -115,10 +103,14 @@ def sighandle(loop, server):
     signal.signal(signal.SIGTERM, sigquit)
     signal.signal(signal.SIGINT, sigquit)
 
-def quit(loop, server):
+def quit(loop, server, rlist):
+    
     server.close()
     loop.call_soon(server.wait_closed)
+
+    rlist.remove_cleanup()
     loop.call_soon(loop.stop)
+
 
 
 def main():
@@ -132,10 +124,11 @@ def main():
     print('Serving on ' + ', '.join(str(sock.getsockname())
                                    for sock in server.sockets))
 
-    # Serve requests until Ctrl+C is pressed    
 
-    # sighandle(loop, server)
-    pquit = functools.partial(quit, loop, server)
+    # Serve requests until Ctrl+C is pressed
+    protocol_class.rlist.install_cleanup(loop)
+    pquit = functools.partial(quit, loop, server, protocol_class.rlist)
+
     loop.add_signal_handler(signal.SIGINT, pquit)
     loop.add_signal_handler(signal.SIGINT, pquit)
 
