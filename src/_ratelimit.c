@@ -13,6 +13,21 @@
 
 static uint64_t FAKE_NOW = 0;
 
+
+static PyObject *
+get_fake_now(PyObject *cls, PyObject *args) {
+    return PyLong_FromLong(FAKE_NOW);
+}
+static PyObject *
+set_fake_now(PyObject *cls, PyObject *args) {
+    if (! PyArg_ParseTuple(args, "K", &FAKE_NOW) )
+        return NULL;
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 typedef struct {
     PyObject_HEAD
 
@@ -216,20 +231,6 @@ static PyTypeObject pyrated_RentryType = {
     0,                            /* tp_alloc */
     Rentry_new,                   /* tp_new */
 };
-
-
-static PyObject *
-get_fake_now(PyObject *cls, PyObject *args) {
-    return PyLong_FromLong(FAKE_NOW);
-}
-static PyObject *
-set_fake_now(PyObject *cls, PyObject *args) {
-    if (! PyArg_ParseTuple(args, "K", &FAKE_NOW) )
-        return NULL;
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
 
 
 static PyObject *
