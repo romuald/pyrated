@@ -42,6 +42,12 @@ class FakeTime:
 
 
 class TestRlist(unittest.TestCase):
+    def test_caramba(self):
+
+        rl = RatelimitList(10, 42)
+
+        rl.hhit()
+        assert 0
     def test_actual_time(self):
         # A test without FakeTime
 
@@ -97,8 +103,6 @@ class TestRlist(unittest.TestCase):
             assert rl.hit('key') is True
 
             for _ in range(9):
-                print(fake)
-
                 assert rl.hit('key') is False
                 fake += 100
 

@@ -39,7 +39,6 @@ typedef struct {
     uint32_t *hits;
 } Rentry;
 
-
 uint64_t naow() {
     // Used for unit tests
     if ( FAKE_NOW != 0 ) {
@@ -109,11 +108,14 @@ Rentry_dealloc(Rentry* self)
 
 
 static PyObject *
-Rentry_hit(Rentry* self, PyObject *args)
+Rentry_hit(Rentry* self, uint32_t size, uint32_t delay)
+    //PyObject *args)
 {
+    /*
     uint32_t size, delay;
     if (! PyArg_ParseTuple(args, "II", &size, &delay))
         return NULL;
+    */
 
     uint64_t now = naow();
 
@@ -179,9 +181,9 @@ Rentry_hit(Rentry* self, PyObject *args)
 }
 
 static PyMethodDef Rentry_methods[] = {
-    {"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
+    /*{"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
      "Hit me"
-    },
+    },*/
 
     {NULL}  /* Sentinel */
 };
@@ -231,6 +233,108 @@ static PyTypeObject pyrated_RentryType = {
     0,                            /* tp_alloc */
     Rentry_new,                   /* tp_new */
 };
+
+
+typedef struct {
+    PyObject_HEAD
+
+    /* Type-specific fields go here. */
+    PyObject *entries;   // <dict> of str -> Rentry
+    uint32_t count;     // how many hits per...
+    uint32_t delay;    // how many milliseconds
+} RatelimitBase;
+
+
+static PyObject *
+hhit(RatelimitBase *self, PyObject *args) {
+    const char *key;
+    if (! PyArg_ParseTuple(args, "s", &key) )
+        return NULL;
+
+    Rentry *value = PyDict_GetItemString(self->entries, key);
+
+    if ( value == NULL ) {
+        /* Pass two arguments, a string and an int. */
+        PyObject *argList = Py_BuildValue("si", "hello", 42);
+
+        /* Call the class object. */
+        Rentry *obj = PyObject_CallObject((Rentry *) &pyrated_RentryType, NULL);
+
+        /* Release the argument list. */
+        Py_DECREF(argList);
+
+        PyDict_SetItemString(self->entries, key, obj);
+        value = obj;
+        
+    }
+
+    PyObject *result = Rentry_hit(value, self->count, self->delay);
+    //printf("segfault? %#X\n", value);
+    //Py_INCREF(result);
+    //Py_INCREF(result);
+    return result;
+
+}
+
+static PyMethodDef pyrated_RatelimitBase_Methods[] = {
+    {"hit",  hhit, METH_VARARGS,
+     "hit test"},
+
+    {NULL}        /* Sentinel */
+};
+
+static PyMemberDef pyrated_RatelimitBase_Members[] = {
+    {"_entries", T_OBJECT_EX, offsetof(RatelimitBase, entries), 0,
+     ""},
+    {"_count", T_INT, offsetof(RatelimitBase, count), 0,
+     ""},
+    {"_delay", T_INT, offsetof(RatelimitBase, delay), 0,
+     ""},
+    {NULL}  /* Sentinel */
+};
+
+
+static PyTypeObject pyrated_RatelimiBaseType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "pyrated._ratelimit.RatelimitBase",  /* tp_name */
+    sizeof(RatelimitBase),               /* tp_basicsize */
+    0,                            /* tp_itemsize */
+    0,                            /* tp_dealloc */
+    0,                            /* tp_print */
+    0,                            /* tp_getattr */
+    0,                            /* tp_setattr */
+    0,                            /* tp_reserved */
+    0,                            /* tp_repr */
+    0,                            /* tp_as_number */
+    0,                            /* tp_as_sequence */
+    0,                            /* tp_as_mapping */
+    0,                            /* tp_hash  */
+    0,                            /* tp_call */
+    0,                            /* tp_str */
+    0,                            /* tp_getattro */
+    0,                            /* tp_setattro */
+    0,                            /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags */
+    "Base type for RatelimitList",     /* tp_doc */
+    0,                            /* tp_traverse */
+    0,                            /* tp_clear */
+    0,                            /* tp_richcompare */
+    0,                            /* tp_weaklistoffset */
+    0,                            /* tp_iter */
+    0,                            /* tp_iternext */
+    pyrated_RatelimitBase_Methods,               /* tp_methods */
+    pyrated_RatelimitBase_Members,               /* tp_members */
+    0,                            /* tp_getset */
+    0,                            /* tp_base */
+    0,                            /* tp_dict */
+    0,                            /* tp_descr_get */
+    0,                            /* tp_descr_set */
+    0,                            /* tp_dictoffset */
+    NULL,        /* tp_init */
+    0,                            /* tp_alloc */
+    NULL,                   /* tp_new */
+};
+
 
 
 static PyObject *
@@ -309,19 +413,25 @@ static PyModuleDef rentrymodule = {
 PyMODINIT_FUNC
 PyInit__ratelimit(void)
 {
-    PyObject* m;
+    PyObject* module;
 
     pyrated_RentryType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&pyrated_RentryType) < 0)
         return NULL;
+    pyrated_RatelimiBaseType.tp_new = PyType_GenericNew;
 
-    m = PyModule_Create(&rentrymodule);
-    if (m == NULL)
+    if (PyType_Ready(&pyrated_RatelimiBaseType) < 0)
+        return NULL;
+
+    module = PyModule_Create(&rentrymodule);
+    if (module == NULL)
         return NULL;
 
 
     Py_INCREF(&pyrated_RentryType);
-    PyModule_AddObject(m, "Rentry", (PyObject *)&pyrated_RentryType);
+    Py_INCREF(&pyrated_RatelimiBaseType);
+    PyModule_AddObject(module, "Rentry",(PyObject *)&pyrated_RentryType);
+    PyModule_AddObject(module, "RatelimitBase", (PyObject *)&pyrated_RatelimiBaseType);
 
-    return m;
+    return module;
 }

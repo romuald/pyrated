@@ -1,9 +1,8 @@
 import asyncio
 
-from ._ratelimit import Rentry, cleanup_dict
+from ._ratelimit import Rentry, RatelimitBase, cleanup_dict
 
-
-class RatelimitList:
+class RatelimitList(RatelimitBase):
     """Not actually a list"""
 
     def __init__(self, count, delay):
@@ -13,6 +12,7 @@ class RatelimitList:
 
         """
         self._entries = {}
+
         self._count = count
         self._delay = int(delay * 1000)
         self._cleanup_task = None
@@ -34,7 +34,7 @@ class RatelimitList:
     def __len__(self):
         return len(self._entries)
 
-    def hit(self, key):
+    def _hit(self, key):
         entry = self._entries.get(key)
 
         if entry is None:
