@@ -34,7 +34,7 @@ class RatelimitList(RatelimitBase):
     def __len__(self):
         return len(self._entries)
 
-    def _hit(self, key):
+    def khit(self, key):
         entry = self._entries.get(key)
 
         if entry is None:

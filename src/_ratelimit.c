@@ -13,6 +13,7 @@
 
 static uint64_t FAKE_NOW = 0;
 
+#define C_ONLY
 
 static PyObject *
 get_fake_now(PyObject *cls, PyObject *args) {
@@ -106,17 +107,13 @@ Rentry_dealloc(Rentry* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-
 static PyObject *
-Rentry_hit(Rentry* self, uint32_t size, uint32_t delay)
-    //PyObject *args)
-{
-    /*
+Rentry_hit(Rentry* self, uint32_t size, uint32_t delay) {
+/*
     uint32_t size, delay;
     if (! PyArg_ParseTuple(args, "II", &size, &delay))
         return NULL;
-    */
-
+*/
     uint64_t now = naow();
 
     if ( self->base == 0 ) {
@@ -181,9 +178,9 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay)
 }
 
 static PyMethodDef Rentry_methods[] = {
-    /*{"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
+    {"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
      "Hit me"
-    },*/
+    },
 
     {NULL}  /* Sentinel */
 };
@@ -247,33 +244,34 @@ typedef struct {
 
 static PyObject *
 hhit(RatelimitBase *self, PyObject *args) {
-    const char *key;
-    if (! PyArg_ParseTuple(args, "s", &key) )
+    //const char *key;
+    PyObject *key;
+
+    if (! PyArg_ParseTuple(args, "O", &key) )
         return NULL;
 
-    Rentry *value = PyDict_GetItemString(self->entries, key);
+    Rentry *value = (Rentry*) PyDict_GetItem(self->entries, key);
 
-    if ( value == NULL ) {
-        /* Pass two arguments, a string and an int. */
-        PyObject *argList = Py_BuildValue("si", "hello", 42);
-
+    if (  value == NULL ) {
         /* Call the class object. */
-        Rentry *obj = PyObject_CallObject((Rentry *) &pyrated_RentryType, NULL);
+        Rentry *obj = (Rentry*) PyObject_CallObject((PyObject *) &pyrated_RentryType, NULL);
 
-        /* Release the argument list. */
-        Py_DECREF(argList);
+        PyDict_SetItem(self->entries, key,  obj);
 
-        PyDict_SetItemString(self->entries, key, obj);
         value = obj;
-        
+        Py_DECREF(obj);
     }
 
     PyObject *result = Rentry_hit(value, self->count, self->delay);
-    //printf("segfault? %#X\n", value);
-    //Py_INCREF(result);
-    //Py_INCREF(result);
     return result;
+}
 
+static void
+RatelimitBase_dealloc(RatelimitBase* self)
+{
+    //printf("dalloc list\n");
+    Py_DECREF(self->entries);
+    Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 static PyMethodDef pyrated_RatelimitBase_Methods[] = {
@@ -299,7 +297,7 @@ static PyTypeObject pyrated_RatelimiBaseType = {
     "pyrated._ratelimit.RatelimitBase",  /* tp_name */
     sizeof(RatelimitBase),               /* tp_basicsize */
     0,                            /* tp_itemsize */
-    0,                            /* tp_dealloc */
+   (destructor)RatelimitBase_dealloc,   /* tp_dealloc */
     0,                            /* tp_print */
     0,                            /* tp_getattr */
     0,                            /* tp_setattr */
