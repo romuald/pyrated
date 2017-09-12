@@ -256,7 +256,7 @@ hhit(RatelimitBase *self, PyObject *args) {
         /* Call the class object. */
         Rentry *obj = (Rentry*) PyObject_CallObject((PyObject *) &pyrated_RentryType, NULL);
 
-        PyDict_SetItem(self->entries, key,  obj);
+        PyDict_SetItem(self->entries, key,  (PyObject*) obj);
 
         value = obj;
         Py_DECREF(obj);
@@ -275,7 +275,7 @@ RatelimitBase_dealloc(RatelimitBase* self)
 }
 
 static PyMethodDef pyrated_RatelimitBase_Methods[] = {
-    {"hit",  hhit, METH_VARARGS,
+    {"hit",  (PyCFunction)hhit, METH_VARARGS,
      "hit test"},
 
     {NULL}        /* Sentinel */
