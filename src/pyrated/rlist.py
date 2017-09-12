@@ -1,6 +1,6 @@
 import asyncio
 
-from ._ratelimit import Rentry, now, cleanup_dict
+from ._ratelimit import Rentry, cleanup_dict
 
 
 class RatelimitList:
@@ -62,16 +62,6 @@ class RatelimitList:
 
     def cleanup(self):
         return cleanup_dict(self._entries, self._delay)
-
-        nono = now()
-        to_delete = set(key for key, value in self._entries.items()
-                     if value.is_expired(nono, self._delay))
-
-        for key in to_delete:
-            del self._entries[key]
-        #self._entries = {k: v for k, v in self._entries.items() if k not in to_delete}
-
-        return len(to_delete)
 
     async def cleanup_run(self, interval):
         while True:

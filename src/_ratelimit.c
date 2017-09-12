@@ -54,11 +54,6 @@ uint64_t naow() {
 }
 
 static PyObject *
-pynaow(PyObject *cls, PyObject *args) {
-    return PyLong_FromLong(naow());
-}
-
-static PyObject *
 Rentry_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     Rentry *self;
@@ -168,51 +163,15 @@ Rentry_hit(Rentry* self, PyObject *args)
     return Py_True;
 }
 
-static PyObject *
-Rentry_is_expired(Rentry* self, PyObject *args)
-{
-    uint64_t now;
-    uint32_t delay;
-
-    if (! PyArg_ParseTuple(args, "KI", &now, &delay))
-        return NULL;
-
-    PyObject *result;
-
-    if ( self->csize == 0 ) {
-        result = Py_True;
-    } else {
-
-        uint32_t index = 
-            self->current == 0 ? self->csize - 1 : self->current - 1;
-        uint64_t expires_at = self->base + self->hits[index] + delay;
-
-        result = expires_at < now ? Py_True : Py_False;
-        
-        //printf("E? base=%llu, now=%llu, i=%d, previous=%d, expired=%c\n",
-        //   self->base, now, index, self->hits[index], result == Py_True ? 'y': 'n');
-    }
-
-    Py_INCREF(result);
-
-    return result;
-}
-
 static PyMethodDef Rentry_methods[] = {
     {"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
      "Hit me"
     },
-    {"is_expired", (PyCFunction)Rentry_is_expired, METH_VARARGS,
-     "Is entry expired?"},
 
     {NULL}  /* Sentinel */
 };
 
 static PyMemberDef Rentry_members[] = {
-    {"current", T_INT, offsetof(Rentry, current), 0,
-     "noddy number"},
-    /*{"zoub", T_INT, offsetof(Rentry, zoub), READONLY,
-     "A zoub"},*/
     {NULL}  /* Sentinel */
 };
 
@@ -330,18 +289,18 @@ cleanup_dict(PyObject *cls, PyObject *args) {
 
 static PyMethodDef ModuleMethods[] = {
     {"_set_fake_now",  set_fake_now, METH_VARARGS,
-     "Meh"},
+     "Set the absolute time of fake internal clock "
+     "to {value} milliseconds (for tests)"},
     {"_get_fake_now",  get_fake_now, METH_NOARGS,
-     "Meh"},
-    {"now", (PyCFunction)pynaow, METH_NOARGS, "Monotonic now"},
-    {"cleanup_dict", cleanup_dict, METH_VARARGS, "Mehmh"},
+     "Get the absolute time (in milliseconds of fake internal clock (for tests)"},
+    {"cleanup_dict", cleanup_dict, METH_VARARGS, "Remove expired entries from dictionary"},
     {NULL}        /* Sentinel */
 };
 
 static PyModuleDef rentrymodule = {
     PyModuleDef_HEAD_INIT,
     .m_name = "pyrated._ratelimit",
-    .m_doc = "Example module that creates an extension type.",
+    .m_doc = "C part of the ratelimit module.",
     .m_size = -1,
     .m_methods = ModuleMethods,
 };
