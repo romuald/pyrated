@@ -7,9 +7,8 @@ from setuptools.command.test import test as TestCommand
 if sys.version_info.major < 3:
     raise RuntimeError('This module only supports python3')
 
-rentry = Extension('pyrated.rentry',
-                    sources = ['src/rentry.c'])
-
+ratelimit = Extension('pyrated._ratelimit',
+                    sources = ['src/_ratelimit.c'])
 
 
 class PyTest(TestCommand):
@@ -35,7 +34,7 @@ setup(
 
     # py_modules = ('src/pyrated',),
     description = 'The Python ratelimit daemon',
-    ext_modules = [rentry],
+    ext_modules = [ratelimit],
     entry_points = {
         'console_scripts': ['pyrated=pyrated.server:main'],
     },

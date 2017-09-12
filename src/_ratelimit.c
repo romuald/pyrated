@@ -219,7 +219,7 @@ static PyMemberDef Rentry_members[] = {
 
 static PyTypeObject pyrated_RentryType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "pyrated.rentry.Rentry",      /* tp_name */
+    "pyrated._ratelimit.Rentry",  /* tp_name */
     sizeof(Rentry),               /* tp_basicsize */
     0,                            /* tp_itemsize */
     (destructor)Rentry_dealloc,   /* tp_dealloc */
@@ -340,14 +340,14 @@ static PyMethodDef ModuleMethods[] = {
 
 static PyModuleDef rentrymodule = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "pyrated.rentry",
+    .m_name = "pyrated._ratelimit",
     .m_doc = "Example module that creates an extension type.",
     .m_size = -1,
     .m_methods = ModuleMethods,
 };
 
 PyMODINIT_FUNC
-PyInit_rentry(void)
+PyInit__ratelimit(void)
 {
     PyObject* m;
 

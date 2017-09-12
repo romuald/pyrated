@@ -1,6 +1,6 @@
 import asyncio
 
-from .rentry import Rentry, now, cleanup_dict
+from ._ratelimit import Rentry, now, cleanup_dict
 
 
 class RatelimitList:
