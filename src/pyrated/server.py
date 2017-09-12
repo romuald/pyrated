@@ -3,7 +3,7 @@ import signal
 import sys
 
 import functools
-from pyrated.rlist import RatelimitList
+from pyrated.ratelimit import RatelimitList
 
 
 class MemcachedServerProtocol(asyncio.Protocol):

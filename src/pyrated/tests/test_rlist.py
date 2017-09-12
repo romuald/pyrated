@@ -1,7 +1,7 @@
 import unittest
 from time import sleep
 
-from pyrated.rlist import RatelimitList
+from pyrated.ratelimit import RatelimitList
 from pyrated._ratelimit import _set_fake_now, _get_fake_now
 
 class FakeTime:
