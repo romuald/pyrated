@@ -87,7 +87,7 @@ Rentry_dealloc(Rentry* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static PyObject *
+static bool
 Rentry_hit(Rentry* self, uint32_t size, uint32_t delay) {
 /*
     uint32_t size, delay;
@@ -142,8 +142,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay) {
     //printf("Hit, now=%ld, last=%ld\n", now, last);
 
     if ( last != 0 && (now - last) < delay ) {
-        Py_INCREF(Py_False);
-        return Py_False;
+        return false;
     }
 
     self->hits[self->current] = now;
@@ -153,15 +152,10 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay) {
         self->current++;
     }
 
-    Py_INCREF(Py_True);
-    return Py_True;
+    return true;
 }
 
 static PyMethodDef Rentry_methods[] = {
-    {"hit", (PyCFunction)Rentry_hit, METH_VARARGS ,//| METH_KEYWORDS,
-     "Hit me"
-    },
-
     {NULL}  /* Sentinel */
 };
 
@@ -241,7 +235,10 @@ hhit(RatelimitBase *self, PyObject *args) {
         Py_DECREF(value);
     }
 
-    PyObject *result = Rentry_hit(value, self->count, self->delay);
+    PyObject *result = Rentry_hit(value, self->count, self->delay) ?
+        Py_True : Py_False;
+    Py_INCREF(result);
+
     return result;
 }
 
