@@ -37,7 +37,7 @@ typedef struct {
     uint32_t *hits;
 } Rentry;
 
-uint64_t naow() {
+static uint64_t naow() {
     // Used for unit tests
     if ( FAKE_NOW != 0 ) {
         return FAKE_NOW;
@@ -97,6 +97,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     }
 
     if ( self->current == self->csize ) {
+        uint32_t i;
         uint32_t new_size = (self->csize + bsize);
         if ( new_size > size ) {
             // Don't allocate more than necessary
@@ -107,7 +108,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
         self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));;
         // Unable to use memset properly
         //memset(self->hits + self->csize * sizeof(self->hits[0]), 0, self->bsize);
-        for ( uint32_t i = self->csize; i < new_size; i++ ) {
+        for ( i = self->csize; i < new_size; i++ ) {
             self->hits[i] = 0;
         }
 
@@ -349,7 +350,8 @@ cleanup_dict(PyObject *cls, PyObject *args) {
         // printf("%zd, %s\n", pos, PyUnicode_AsUTF8(key));
     }
 
-    for ( Py_ssize_t i = 0; i < count; i++) {
+    Py_ssize_t i;
+    for ( i = 0; i < count; i++) {
         PyDict_DelItem(dict, to_delete[i]);
     }
 
