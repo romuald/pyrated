@@ -1,6 +1,6 @@
 import asyncio
 
-from ._ratelimit import Rentry, RatelimitBase, cleanup_dict
+from ._ratelimit import RatelimitBase
 
 class RatelimitList(RatelimitBase):
     """Not actually a list"""
@@ -52,9 +52,6 @@ class RatelimitList(RatelimitBase):
         if self._cleanup_task:
             self._cleanup_task.cancel()
             self._cleanup_task = None
-
-    def cleanup(self):
-        return cleanup_dict(self._entries, self._delay)
 
     @asyncio.coroutine
     def cleanup_run(self, interval):

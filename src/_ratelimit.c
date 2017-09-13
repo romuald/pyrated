@@ -236,6 +236,69 @@ RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
     return result;
 }
 
+#if 0
+static void reprint(PyObject *obj) {
+    PyObject* repr = PyObject_Repr(obj);
+    PyObject* str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
+    const char *bytes = PyBytes_AS_STRING(str);
+    printf("REPR: %s\n", bytes);
+
+    Py_XDECREF(repr);
+    Py_XDECREF(str);
+}
+#endif
+
+static PyObject *
+RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
+    PyObject *key, *value = NULL;
+    Py_ssize_t pos = 0;
+
+    const uint32_t BSIZE = 512; // Allocation block size for to_delete array
+    uint32_t size = BSIZE;
+    uint32_t count = 0;
+
+    PyObject **to_delete = calloc(sizeof(PyObject*), size);
+
+    const uint64_t now = naow();
+
+    while (PyDict_Next(self->entries, &pos, &key, &value)) {
+        Rentry *entry = (Rentry*) value;
+
+        if ( entry->csize == 0 ) {
+            // ADD
+
+        } else {
+            uint32_t index =
+                entry->current == 0 ? entry->csize - 1 : entry->current - 1;
+            uint64_t expires_at = entry->base + entry->hits[index] + self->delay;
+
+            if ( expires_at <= now ) {
+                // ADD
+            } else {
+                continue;
+            }
+        }
+
+        // Bounds of array reached
+        if ( count == size ) {
+            size += BSIZE;
+            to_delete = realloc(to_delete, size * sizeof(PyObject*));
+        }
+        to_delete[count++] = key;
+        // printf("%zd, %s\n", pos, PyUnicode_AsUTF8(key));
+    }
+
+    uint32_t i;
+    for ( i = 0; i < count; i++) {
+        PyDict_DelItem(self->entries, to_delete[i]);
+    }
+
+    free(to_delete);
+
+    return PyLong_FromLong((long)count);
+}
+
+
 static void
 RatelimitBase_dealloc(RatelimitBase* self)
 {
@@ -246,6 +309,8 @@ RatelimitBase_dealloc(RatelimitBase* self)
 static PyMethodDef pyrated_RatelimitBase_Methods[] = {
     {"hit",  (PyCFunction)RatelimitBase_hit, METH_VARARGS,
      "Hit ratelimit for a specific key"},
+    {"cleanup", (PyCFunction)RatelimitBase_cleanup, METH_NOARGS,
+     "Remove expired entries from dictionary"},
 
     {NULL}        /* Sentinel */
 };
@@ -304,70 +369,12 @@ static PyTypeObject pyrated_RatelimiBaseType = {
     PyType_GenericNew,                   /* tp_new */
 };
 
-
-static PyObject *
-cleanup_dict(PyObject *cls, PyObject *args) {
-    PyObject *dict;
-    uint32_t delay;
-    if (! PyArg_ParseTuple(args, "OI", &dict, &delay) )
-        return NULL;
-
-    PyObject *key, *value = NULL;
-    Py_ssize_t pos = 0;
-
-    const uint32_t BSIZE = 512; // Allocation block size for to_delete array
-    uint32_t size = BSIZE;
-    uint32_t count = 0;
-
-    PyObject **to_delete = calloc(sizeof(PyObject*), size);
-
-    const uint64_t now = naow();
-
-    while (PyDict_Next(dict, &pos, &key, &value)) {
-        Rentry *self = (Rentry*) value;
-
-        if ( self->csize == 0 ) {
-            // ADD
-
-        } else {
-            uint32_t index =
-                self->current == 0 ? self->csize - 1 : self->current - 1;
-            uint64_t expires_at = self->base + self->hits[index] + delay;
-
-            if ( expires_at <= now ) {
-                // ADD
-            } else {
-                continue;
-            }
-        }
-
-        // Bounds of array reached
-        if ( count == size ) {
-            size += BSIZE;
-            to_delete = realloc(to_delete, size * sizeof(PyObject*));
-        }
-        to_delete[count++] = key;
-        // printf("%zd, %s\n", pos, PyUnicode_AsUTF8(key));
-    }
-
-    Py_ssize_t i;
-    for ( i = 0; i < count; i++) {
-        PyDict_DelItem(dict, to_delete[i]);
-    }
-
-    free(to_delete);
-    //Py_DECREF(dict);
-
-    return PyLong_FromLong((long)count);
-}
-
 static PyMethodDef ModuleMethods[] = {
     {"_set_fake_now",  set_fake_now, METH_VARARGS,
      "Set the absolute time of fake internal clock "
      "to {value} milliseconds (for tests)"},
     {"_get_fake_now",  get_fake_now, METH_NOARGS,
      "Get the absolute time (in milliseconds of fake internal clock (for tests)"},
-    {"cleanup_dict", cleanup_dict, METH_VARARGS, "Remove expired entries from dictionary"},
     {NULL}        /* Sentinel */
 };
 
