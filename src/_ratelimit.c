@@ -36,7 +36,6 @@ typedef struct {
     uint64_t base;     // Base monotonic timestamp
     uint32_t current;  // Current element in *hits
     uint32_t csize;    // Currently allocated *hits size
-    uint32_t bsize;    // By how much *hits will grow until it reaches max size
     uint32_t *hits;
 } Rentry;
 
@@ -74,7 +73,6 @@ Rentry_init(Rentry *self, PyObject *args, PyObject *kwds)
     self->base = 0;
     self->current = 0;
     self->csize = 0;
-    self->bsize = 10;
     self->hits = NULL;
 
     return 0;
@@ -88,7 +86,7 @@ Rentry_dealloc(Rentry* self)
 }
 
 static bool
-Rentry_hit(Rentry* self, uint32_t size, uint32_t delay) {
+Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
 /*
     uint32_t size, delay;
     if (! PyArg_ParseTuple(args, "II", &size, &delay))
@@ -101,7 +99,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay) {
     }
 
     if ( self->current == self->csize ) {
-        uint32_t i, new_size = (self->csize + self->bsize);
+        uint32_t i, new_size = (self->csize + bsize);
         //printf("realloc %d -> %d\n", self->csize, new_size);
         // XXX check NULL (realloc fail)
         self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));;
@@ -236,7 +234,8 @@ hhit(RatelimitBase *self, PyObject *args) {
         Py_DECREF(value);
     }
 
-    result = Rentry_hit(value, self->count, self->delay) ? Py_True : Py_False;
+    result = Rentry_hit(value, self->count, self->delay, self->block_size) ?
+        Py_True : Py_False;
 
     Py_INCREF(result);
 
@@ -263,6 +262,8 @@ static PyMemberDef pyrated_RatelimitBase_Members[] = {
     {"_count", T_INT, offsetof(RatelimitBase, count), 0,
      ""},
     {"_delay", T_INT, offsetof(RatelimitBase, delay), 0,
+     ""},
+    {"block_size", T_INT, offsetof(RatelimitBase, block_size), 0,
      ""},
     {NULL}  /* Sentinel */
 };

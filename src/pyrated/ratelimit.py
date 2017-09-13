@@ -5,7 +5,7 @@ from ._ratelimit import Rentry, RatelimitBase, cleanup_dict
 class RatelimitList(RatelimitBase):
     """Not actually a list"""
 
-    def __init__(self, count, delay):
+    def __init__(self, count, delay, block_size=None):
         """
         :param count: max number of hits for an entry of the list
         :param delay: in seconds, the period in which each entry ist limited
@@ -16,6 +16,7 @@ class RatelimitList(RatelimitBase):
         self._count = count
         self._delay = int(delay * 1000)
         self._cleanup_task = None
+        self.block_size = 10
 
     @property
     def count(self):
