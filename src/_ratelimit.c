@@ -251,13 +251,13 @@ static PyMethodDef pyrated_RatelimitBase_Methods[] = {
 
 static PyMemberDef pyrated_RatelimitBase_Members[] = {
     {"_entries", T_OBJECT_EX, offsetof(RatelimitBase, entries), 0,
-     ""},
+     "Dict of key->Rentry"},
     {"_count", T_INT, offsetof(RatelimitBase, count), 0,
-     ""},
+     "How much hits are allowed"},
     {"_delay", T_INT, offsetof(RatelimitBase, delay), 0,
-     ""},
-    {"block_size", T_INT, offsetof(RatelimitBase, block_size), 0,
-     ""},
+     "The period (milliseconds) over which the hits are allowed"},
+    {"_block_size", T_INT, offsetof(RatelimitBase, block_size), 0,
+     "Block size allocation"},
     {NULL}  /* Sentinel */
 };
 

@@ -16,7 +16,7 @@ class RatelimitList(RatelimitBase):
         self._count = count
         self._delay = int(delay * 1000)
         self._cleanup_task = None
-        self.block_size = 10
+        self._block_size = 10
 
     @property
     def count(self):
