@@ -110,7 +110,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay) {
         for ( i = self->csize; i < new_size; i++ ) {
             self->hits[i] = 0;
         }
-        
+
         self->csize = new_size;
     }
 
@@ -213,12 +213,13 @@ typedef struct {
     PyObject *entries;   // <dict> of str -> Rentry
     uint32_t count;     // how many hits per...
     uint32_t delay;    // how many milliseconds
+    uint32_t block_size; // By how much entry->*hits will grow until it reaches max size
 } RatelimitBase;
 
 
 static PyObject *
 hhit(RatelimitBase *self, PyObject *args) {
-    PyObject *key;
+    PyObject *key, *result;
 
     if (! PyArg_ParseTuple(args, "O", &key) )
         return NULL;
@@ -235,8 +236,8 @@ hhit(RatelimitBase *self, PyObject *args) {
         Py_DECREF(value);
     }
 
-    PyObject *result = Rentry_hit(value, self->count, self->delay) ?
-        Py_True : Py_False;
+    result = Rentry_hit(value, self->count, self->delay) ? Py_True : Py_False;
+
     Py_INCREF(result);
 
     return result;
@@ -245,8 +246,7 @@ hhit(RatelimitBase *self, PyObject *args) {
 static void
 RatelimitBase_dealloc(RatelimitBase* self)
 {
-    //printf("dalloc list\n");
-    Py_DECREF(self->entries);
+    Py_XDECREF(self->entries);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -317,7 +317,7 @@ cleanup_dict(PyObject *cls, PyObject *args) {
     uint32_t delay;
     if (! PyArg_ParseTuple(args, "OI", &dict, &delay) )
         return NULL;
-    
+
     PyObject *key, *value = NULL;
     Py_ssize_t pos = 0;
 
@@ -336,7 +336,7 @@ cleanup_dict(PyObject *cls, PyObject *args) {
             // ADD
 
         } else {
-            uint32_t index = 
+            uint32_t index =
                 self->current == 0 ? self->csize - 1 : self->current - 1;
             uint64_t expires_at = self->base + self->hits[index] + delay;
 
@@ -362,7 +362,7 @@ cleanup_dict(PyObject *cls, PyObject *args) {
 
     free(to_delete);
     //Py_DECREF(dict);
-    
+
     return PyLong_FromLong((long)count);
 }
 
