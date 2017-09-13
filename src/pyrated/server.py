@@ -104,14 +104,7 @@ def sighandle(loop, server):
     signal.signal(signal.SIGINT, sigquit)
 
 def quit(loop, server, rlist):
-    
-    server.close()
-    loop.call_soon(server.wait_closed)
-
-    rlist.remove_cleanup()
     loop.call_soon(loop.stop)
-
-
 
 def main():
     loop = asyncio.get_event_loop()
@@ -129,19 +122,17 @@ def main():
     protocol_class.rlist.install_cleanup(loop)
     pquit = functools.partial(quit, loop, server, protocol_class.rlist)
 
-    loop.add_signal_handler(signal.SIGINT, pquit)
-    loop.add_signal_handler(signal.SIGINT, pquit)
+    loop.add_signal_handler(signal.SIGINT, loop.stop)
+    loop.add_signal_handler(signal.SIGTERM, loop.stop)
 
     try:
         loop.run_forever()
     finally:
+        protocol_class.rlist.remove_cleanup()
+        server.close()
+        loop.run_until_complete(server.wait_closed())
         loop.close()
-    return
 
-    # Close the server
-    server.close()
-    loop.run_until_complete(server.wait_closed())
-    loop.close()
 
 if __name__ == '__main__':
     main()

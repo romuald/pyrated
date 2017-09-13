@@ -56,13 +56,13 @@ class RatelimitList(RatelimitBase):
     def cleanup(self):
         return cleanup_dict(self._entries, self._delay)
 
-    async def cleanup_run(self, interval):
+    @asyncio.coroutine
+    def cleanup_run(self, interval):
         while True:
             try:
-                await asyncio.sleep(interval)
+                yield from asyncio.sleep(interval)
 
                 self.cleanup()
 
             except asyncio.CancelledError:
                 break
-            print('cleaning up')
