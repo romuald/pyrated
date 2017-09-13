@@ -209,7 +209,7 @@ typedef struct {
 
 
 static PyObject *
-hhit(RatelimitBase *self, PyObject *args) {
+RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
     PyObject *key, *result;
 
     if (! PyArg_ParseTuple(args, "O", &key) )
@@ -243,8 +243,8 @@ RatelimitBase_dealloc(RatelimitBase* self)
 }
 
 static PyMethodDef pyrated_RatelimitBase_Methods[] = {
-    {"hit",  (PyCFunction)hhit, METH_VARARGS,
-     "hit test"},
+    {"hit",  (PyCFunction)RatelimitBase_hit, METH_VARARGS,
+     "Hit ratelimit for a specific key"},
 
     {NULL}        /* Sentinel */
 };
