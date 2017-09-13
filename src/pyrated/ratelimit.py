@@ -35,14 +35,6 @@ class RatelimitList(RatelimitBase):
     def __len__(self):
         return len(self._entries)
 
-    def khit(self, key):
-        entry = self._entries.get(key)
-
-        if entry is None:
-            entry = self._entries[key] = Rentry()
-
-        return entry.hit(self._count, self._delay)
-
     def get(self, entry):
         return "XXX todo" # self._entries[entry]
 
