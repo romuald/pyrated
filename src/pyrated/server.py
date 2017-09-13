@@ -45,12 +45,12 @@ class MemcachedServerProtocol(asyncio.Protocol):
         self.transport.write(b'ERROR unknown command\r\n')
 
     def handle_get(self, *keys):
-        lines = []
         for key in filter(self.rlist.__contains__, keys):
             value = str(self.rlist.get(key))
-            lines.append('VALUE %s 0 %d %s' % (key, len(value), value))
+            line = 'VALUE %s 0 %d %s\r\n' % (key, len(value), value)
+            self.transport.write(line.encode())
 
-        self.transport.write('\r\n'.join(lines).encode() + b'\r\nEND\r\n')
+        self.transport.write(b'END\r\n')
 
     def handle_incr(self, key, value=0, noreply=None, *args):
         ret = b'0' if self.rlist.hit(key) else b'1'
