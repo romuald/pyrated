@@ -13,8 +13,6 @@
 
 static uint64_t FAKE_NOW = 0;
 
-#define C_ONLY
-
 static PyObject *
 get_fake_now(PyObject *cls, PyObject *args) {
     return PyLong_FromLong(FAKE_NOW);
@@ -99,13 +97,17 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     }
 
     if ( self->current == self->csize ) {
-        uint32_t i, new_size = (self->csize + bsize);
+        uint32_t new_size = (self->csize + bsize);
+        if ( new_size > size ) {
+            // Don't allocate more than necessary
+            new_size = size;
+        }
         //printf("realloc %d -> %d\n", self->csize, new_size);
         // XXX check NULL (realloc fail)
         self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));;
         // Unable to use memset properly
         //memset(self->hits + self->csize * sizeof(self->hits[0]), 0, self->bsize);
-        for ( i = self->csize; i < new_size; i++ ) {
+        for ( uint32_t i = self->csize; i < new_size; i++ ) {
             self->hits[i] = 0;
         }
 
