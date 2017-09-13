@@ -68,34 +68,14 @@ uint64_t naow() {
 #endif
 }
 
-static PyObject *
-Rentry_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    Rentry *self;
-
-    self = (Rentry *)type->tp_alloc(type, 0);
-    if (self != NULL) {
-        self->base = 0;
-        self->current = 0;
-        self->csize = 0;
-        self->bsize = 0;
-        self->hits = NULL;
-    }
-
-    return (PyObject *)self;
-}
-
 static int
 Rentry_init(Rentry *self, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"block_size", NULL};
-
-     if (! PyArg_ParseTupleAndKeywords(args, kwds, "|I", kwlist, &self->bsize))
-        return -1;
-
-    if (self->bsize == 0) {
-        self->bsize = 10; // XXX use ratio
-    }
+    self->base = 0;
+    self->current = 0;
+    self->csize = 0;
+    self->bsize = 10;
+    self->hits = NULL;
 
     return 0;
 }
@@ -228,7 +208,7 @@ static PyTypeObject pyrated_RentryType = {
     0,                            /* tp_dictoffset */
     (initproc)Rentry_init,        /* tp_init */
     0,                            /* tp_alloc */
-    Rentry_new,                   /* tp_new */
+    PyType_GenericNew,            /* tp_new */
 };
 
 
@@ -244,7 +224,6 @@ typedef struct {
 
 static PyObject *
 hhit(RatelimitBase *self, PyObject *args) {
-    //const char *key;
     PyObject *key;
 
     if (! PyArg_ParseTuple(args, "O", &key) )
@@ -252,14 +231,14 @@ hhit(RatelimitBase *self, PyObject *args) {
 
     Rentry *value = (Rentry*) PyDict_GetItem(self->entries, key);
 
-    if (  value == NULL ) {
-        /* Call the class object. */
-        Rentry *obj = (Rentry*) PyObject_CallObject((PyObject *) &pyrated_RentryType, NULL);
+    if ( value == NULL ) {
+        // Create new instance of Rentry
+        value = (Rentry*) PyObject_CallObject((PyObject *) &pyrated_RentryType, NULL);
 
-        PyDict_SetItem(self->entries, key,  (PyObject*) obj);
+        PyDict_SetItem(self->entries, key,  (PyObject*) value);
 
-        value = obj;
-        Py_DECREF(obj);
+        // Let the dict keep the ownership
+        Py_DECREF(value);
     }
 
     PyObject *result = Rentry_hit(value, self->count, self->delay);
@@ -330,7 +309,7 @@ static PyTypeObject pyrated_RatelimiBaseType = {
     0,                            /* tp_dictoffset */
     NULL,        /* tp_init */
     0,                            /* tp_alloc */
-    NULL,                   /* tp_new */
+    PyType_GenericNew,                   /* tp_new */
 };
 
 
@@ -413,11 +392,11 @@ PyInit__ratelimit(void)
 {
     PyObject* module;
 
-    pyrated_RentryType.tp_new = PyType_GenericNew;
+    //pyrated_RentryType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&pyrated_RentryType) < 0)
         return NULL;
-    pyrated_RatelimiBaseType.tp_new = PyType_GenericNew;
 
+    //pyrated_RatelimiBaseType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&pyrated_RatelimiBaseType) < 0)
         return NULL;
 
