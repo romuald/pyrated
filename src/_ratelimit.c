@@ -155,15 +155,6 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     return true;
 }
 
-static PyMethodDef Rentry_methods[] = {
-    {NULL}  /* Sentinel */
-};
-
-static PyMemberDef Rentry_members[] = {
-    {NULL}  /* Sentinel */
-};
-
-
 static PyTypeObject pyrated_RentryType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "pyrated._ratelimit.Rentry",  /* tp_name */
@@ -192,8 +183,8 @@ static PyTypeObject pyrated_RentryType = {
     0,                            /* tp_weaklistoffset */
     0,                            /* tp_iter */
     0,                            /* tp_iternext */
-    Rentry_methods,               /* tp_methods */
-    Rentry_members,               /* tp_members */
+    0,                            /* tp_methods */
+    0,                            /* tp_members */
     0,                            /* tp_getset */
     0,                            /* tp_base */
     0,                            /* tp_dict */
@@ -311,7 +302,6 @@ static PyTypeObject pyrated_RatelimiBaseType = {
     0,                            /* tp_alloc */
     PyType_GenericNew,                   /* tp_new */
 };
-
 
 
 static PyObject *
