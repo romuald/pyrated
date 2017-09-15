@@ -1,8 +1,11 @@
-import asyncio
-import signal
+import re
 import sys
-
+import signal
+import asyncio
+import argparse
 import functools
+
+
 from pyrated.ratelimit import RatelimitList
 
 
@@ -18,7 +21,6 @@ class MemcachedServerProtocol(asyncio.Protocol):
         cls._class_counter += 1
 
         ret = type(cls.__name__ + str(cls._class_counter), (cls, ), {})
-        ret.rlist = RatelimitList(10, 5)
 
         return ret
 
@@ -26,12 +28,10 @@ class MemcachedServerProtocol(asyncio.Protocol):
         self.transport = transport
         self.buffer = b''
 
-        # remote = transport.get_extra_info('peername')[0]
-
     def handle_line(self, line):
         command, *args = line.split(' ')
 
-        print('Command: {}, args={!r}'.format(command, []))
+        # print('Command: {}, args={!r}'.format(command, []))
 
         if command == 'incr':
             return self.handle_incr(*args)
@@ -89,29 +89,54 @@ class MemcachedServerProtocol(asyncio.Protocol):
         # That's a very big line, cut connection
         if len(self.buffer) > 8096:
             self.transport.close()
-        
-        return
 
 
-def sighandle(loop, server):
-    def sigquit(signal, *args):
-        server.close()
-        loop.run_until_complete(server.wait_closed())
-        loop.close()
-        sys.exit()
+class RatelimitDef:
+    """
+    Ratelimit defintition parsing
+    
+        - 1/8 -> max 1 hit in 8 seconds
+        - 5/5 -> max 5 hits in 5 seconds
 
-    signal.signal(signal.SIGTERM, sigquit)
-    signal.signal(signal.SIGINT, sigquit)
+    """
 
-def quit(loop, server, rlist):
-    loop.call_soon(loop.stop)
+    def __init__(self, value):
+        reg = r'(\d+)/(\d+(?:\.\d+)?)'
+        match = re.match(reg, value)
+        if not match:
+            raise ValueError
+
+        self.count = int(match.group(1))
+        self.delay = int(match.group(2))
+
+    def __repr__(self):
+        return '%r/%r' % (self.count, self.delay)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Foo')
+    parser.add_argument('definition', type=RatelimitDef, help='The ratelimit definition ([#hits]/[period])')
+    parser.add_argument('-s', '--source', action='append', help='IP address/host to listen to')
+    parser.add_argument('-p', '--port', type=int, default=11211, help='TCP port to listen to')
+
+    args = parser.parse_args()
+
+    # https://bugs.python.org/issue16399 -_-
+    if args.source is None:
+        args.source = ['localhost']
+
+    return args
+
 
 def main():
-    loop = asyncio.get_event_loop()
+    args = parse_args()
+
     # Each client connection will create a new protocol instance
     protocol_class = MemcachedServerProtocol.create_class()
+    protocol_class.rlist = RatelimitList(args.definition.count,
+                                         args.definition.delay)
 
-    coro = loop.create_server(protocol_class, '', 11211)
+    loop = asyncio.get_event_loop()
+    coro = loop.create_server(protocol_class, args.source, args.port)
 
     server = loop.run_until_complete(coro)
     print('Serving on ' + ', '.join(str(sock.getsockname())
@@ -120,7 +145,6 @@ def main():
 
     # Serve requests until Ctrl+C is pressed
     protocol_class.rlist.install_cleanup(loop)
-    pquit = functools.partial(quit, loop, server, protocol_class.rlist)
 
     loop.add_signal_handler(signal.SIGINT, loop.stop)
     loop.add_signal_handler(signal.SIGTERM, loop.stop)
