@@ -1,3 +1,4 @@
+import math
 import asyncio
 
 from ._ratelimit import RatelimitBase
@@ -5,7 +6,7 @@ from ._ratelimit import RatelimitBase
 class RatelimitList(RatelimitBase):
     """Not actually a list"""
 
-    def __init__(self, count, delay, block_size=None):
+    def __init__(self, count, delay, block_size=1/5):
         """
         :param count: max number of hits for an entry of the list
         :param delay: in seconds, the period in which each entry ist limited
@@ -13,10 +14,20 @@ class RatelimitList(RatelimitBase):
         """
         self._entries = {}
 
+        if count <= 0:
+            raise ValueError('count must be greater than 0')
+
+        if delay <= 0:
+            raise ValueError('delay must be greater than 0')
+
+        if isinstance(block_size, float):
+            self.block_size = math.ceil(count * block_size)
+        else:
+            self.block_size = block_size
+
         self._count = count
         self._delay = int(delay * 1000)
         self._cleanup_task = None
-        self._block_size = 10
 
     @property
     def count(self):
@@ -25,6 +36,17 @@ class RatelimitList(RatelimitBase):
     @property
     def delay(self):
         return float(self._delay) / 1000
+
+    @property
+    def block_size(self):
+        return self._block_size
+
+    @block_size.setter
+    def block_size(self, value):
+        if value <= 0:
+            raise ValueError('block_size must be greater than 0')
+
+        self._block_size = value
 
     def __iter__(self):
         return iter(self._entries)
