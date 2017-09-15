@@ -62,7 +62,6 @@ class MemcachedServerProtocol(asyncio.Protocol):
 
 
     def handle_delete(self, key, noreply=None):
-        print("delete", key)
         removed = self.rlist.remove(key)
 
         if noreply == 'noreply':
@@ -121,9 +120,12 @@ class RatelimitDef:
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Foo')
-    parser.add_argument('definition', type=RatelimitDef, help='The ratelimit definition ([#hits]/[period])')
-    parser.add_argument('-s', '--source', action='append', help='IP address/host to listen to')
-    parser.add_argument('-p', '--port', type=int, default=11211, help='TCP port to listen to')
+    parser.add_argument('definition', type=RatelimitDef,
+                        help='The ratelimit definition ([#hits]/[period])')
+    parser.add_argument('-s', '--source', action='append',
+                        help='IP address/host to listen to')
+    parser.add_argument('-p', '--port', type=int, default=11211,
+                        help='TCP port to listen to')
 
     args = parser.parse_args()
 
@@ -146,8 +148,8 @@ def main():
     coro = loop.create_server(protocol_class, args.source, args.port)
 
     server = loop.run_until_complete(coro)
-    print('Serving on ' + ', '.join(str(sock.getsockname())
-                                   for sock in server.sockets))
+    interfaces = (str(sock.getsockname()[0]) for sock in server.sockets)
+    print('Serving on %s - port %d' % (', '.join(interfaces), args.port))
 
 
     # Serve requests until Ctrl+C is pressed
