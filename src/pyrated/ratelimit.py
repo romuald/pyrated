@@ -6,10 +6,14 @@ from ._ratelimit import RatelimitBase
 class RatelimitList(RatelimitBase):
     """Not actually a list"""
 
-    def __init__(self, count, delay, block_size=1/5):
+    def __init__(self, count, delay, block_size=0.20):
         """
         :param count: max number of hits for an entry of the list
-        :param delay: in seconds, the period in which each entry ist limited
+        :param delay: in seconds, the period in which each entry is limited
+        :param block_size: by how much the memory will be allocated for each
+            entry, defaults to a fifth of the maximum memory used
+            Meaning at "worst" 5 memory allocations, or at "worst" a fifth
+            of the memory wasted, depending on your point of view
 
         """
         self._entries = {}
@@ -20,7 +24,7 @@ class RatelimitList(RatelimitBase):
         if delay <= 0:
             raise ValueError('delay must be greater than 0')
 
-        if isinstance(block_size, float):
+        if isinstance(block_size, float) and block_size <= 1.0:
             self.block_size = math.ceil(count * block_size)
         else:
             self.block_size = block_size
