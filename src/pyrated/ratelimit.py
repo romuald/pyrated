@@ -67,10 +67,11 @@ class RatelimitList(RatelimitBase):
     def remove(self, entry):
         return bool(self._entries.pop(entry, False))
 
-    def install_cleanup(self, loop, interval=1.0):
-        assert interval > 0
-        self._cleanup_task = asyncio.ensure_future(self.cleanup_run(interval),
-                                                   loop=loop)
+    def install_cleanup(self, loop, interval=30.0):
+        if interval < 0:
+            raise ValueError('Interval must be positive')
+
+        self._cleanup_task = loop.create_task(self.cleanup_run(interval))
 
         return self._cleanup_task
 
