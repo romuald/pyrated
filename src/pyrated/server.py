@@ -101,13 +101,20 @@ class RatelimitDef:
     """
 
     def __init__(self, value):
-        reg = r'(\d+)/(\d+(?:\.\d+)?)'
+        reg = r'(\d+)/(\d+)([mhd])?'
         match = re.match(reg, value)
         if not match:
             raise ValueError
 
         self.count = int(match.group(1))
         self.delay = int(match.group(2))
+
+        if match.group(3) == 'm':
+            self.delay *= 60
+        elif match.group(3) == 'h':
+            self.delay *= 3600
+        elif match.group(3) == 'd':
+            self.delay *= 86400
 
     def __repr__(self):
         return '%r/%r' % (self.count, self.delay)
