@@ -182,3 +182,40 @@ class TestRlist(unittest.TestCase):
                 # Third hit 1 second after doesn't
                 assert rl.hit('foo') is False
                 fake += HALFDAY - 1000
+
+    def test_next_hit(self):
+        # 10 hits over 10 seconds
+        rl = RatelimitList(10, 10)
+
+        with FakeTime() as fake:
+            # Single hit every 100ms for one second
+            for i in range(10):
+                assert rl.next_hit('woot') == 0
+                assert rl.hit('woot') is True
+
+                fake += 100
+
+            # Can't hit at 1000ms
+            assert rl.hit('woot') is False
+
+            # We have to wait 9 seconds
+            assert rl.next_hit('woot') == 9000
+
+            # 500ms after that we have to wait 8.5 seoncds
+            fake += 500
+            assert rl.next_hit('woot') == 8500
+
+            # 8.5 seconds after that we don't have to wait
+            fake += 8500
+            assert rl.next_hit('woot') == 0
+
+            # Hitting 50ms after
+            fake += 50
+            assert rl.hit('woot') is True
+
+            # We then have to wait 50ms again for the next hit
+            assert rl.next_hit('woot') == 50
+            fake += 50
+
+            assert rl.next_hit('woot') == 0
+            assert rl.hit('woot') is True

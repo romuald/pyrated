@@ -83,6 +83,32 @@ Rentry_dealloc(Rentry* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+static void
+Rentry_maybe_rebase(Rentry* self, uint64_t now) {
+    if ( now - self->base < REBASE_TIME ) {
+        return;
+    }
+
+    //printf("rehash, now=%llu, base=%llu, dd=%llu, z==%d\n", now, pia->base, now-pia->base, z);
+    uint32_t i;
+    uint64_t min = 0;
+
+    for ( i=0; i < self->csize; i ++) {
+        if ( min != 0 && self->hits[i] != 0 && self->hits[i] < min ) {
+            min = self->hits[i];
+        }
+    }
+
+    uint64_t new_base = now - min - 1;
+    uint32_t delta = (new_base - self->base);
+    for ( i=0; i < self->csize; i++ ) {
+        if ( self->hits[i] != 0 ) {
+            self->hits[i] = delta + self->hits[i];
+        }
+    }
+    self->base = new_base;
+}
+
 static bool
 Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
 /*
@@ -115,26 +141,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
         self->csize = new_size;
     }
 
-    if ( now - self->base > REBASE_TIME ) {
-        //printf("rehash, now=%llu, base=%llu, dd=%llu, z==%d\n", now, pia->base, now-pia->base, z);
-        uint32_t i;
-        uint64_t min = 0;
-
-        for ( i=0; i < self->csize; i ++) {
-            if ( min != 0 && self->hits[i] != 0 && self->hits[i] < min ) {
-                min = self->hits[i];
-            }
-        }
-
-        uint64_t new_base = now - min - 1;
-        uint32_t delta = (new_base - self->base);
-        for ( i=0; i < self->csize; i++ ) {
-            if ( self->hits[i] != 0 ) {
-                self->hits[i] = delta + self->hits[i];
-            }
-        }
-        self->base = new_base;
-    }
+    Rentry_maybe_rebase(self, now);
 
     now -= self->base;
 
@@ -154,6 +161,35 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     }
 
     return true;
+}
+
+void Rentry_debug(Rentry *self) {
+    printf("Rentry %p, base=%llu, current=%u, hits=[", self, self->base, self->current);
+    uint32_t i;
+    printf("%d", self->hits[0]);
+    for (i=1; i < self->csize; i++) {
+        printf(",%d", self->hits[i]);
+    }
+    printf("]");
+}
+
+static uint64_t
+Rentry_next_hit(Rentry* self, uint32_t size, uint32_t delay) {
+    if ( self->csize < size ) {
+        return 0;
+    }
+
+    uint64_t now = naow();
+    Rentry_maybe_rebase(self, now);
+
+    now -= self->base;
+
+    uint64_t last = self->hits[self->current];
+
+    if ( last != 0 && (now - last) < delay ) {
+        return last + delay - now;
+    }
+    return 0;
 }
 
 static PyTypeObject pyrated_RentryType = {
@@ -236,6 +272,24 @@ RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
     return result;
 }
 
+static PyObject *
+RatelimitBase_next_hit(RatelimitBase *self, PyObject *args) {
+    PyObject *key;
+
+    if (! PyArg_ParseTuple(args, "O", &key) )
+        return NULL;
+
+    Rentry *value = (Rentry*) PyDict_GetItem(self->entries, key);
+
+    if ( value == NULL ) {
+        return PyLong_FromUnsignedLong(0);
+    }
+
+    uint64_t result = Rentry_next_hit(value, self->count, self->delay);
+
+    return PyLong_FromUnsignedLong(result);
+}
+
 #if 0
 static void reprint(PyObject *obj) {
     PyObject* repr = PyObject_Repr(obj);
@@ -285,7 +339,7 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
             to_delete = realloc(to_delete, size * sizeof(PyObject*));
         }
         to_delete[count++] = key;
-        // printf("%zd, %s\n", pos, PyUnicode_AsUTF8(key));
+        //printf("%zd, %s\n", pos, PyUnicode_AsUTF8(key));
     }
 
     uint32_t i;
@@ -309,6 +363,8 @@ RatelimitBase_dealloc(RatelimitBase* self)
 static PyMethodDef pyrated_RatelimitBase_Methods[] = {
     {"hit",  (PyCFunction)RatelimitBase_hit, METH_VARARGS,
      "Hit ratelimit for a specific key"},
+    {"next_hit",  (PyCFunction)RatelimitBase_next_hit, METH_VARARGS,
+     "For how many milliseconds hit() will reply with False"},
     {"cleanup", (PyCFunction)RatelimitBase_cleanup, METH_NOARGS,
      "Remove expired entries from dictionary"},
 

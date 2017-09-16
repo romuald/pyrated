@@ -61,9 +61,6 @@ class RatelimitList(RatelimitBase):
     def __len__(self):
         return len(self._entries)
 
-    def get(self, entry):
-        return "XXX todo" # self._entries[entry]
-
     def remove(self, entry):
         return bool(self._entries.pop(entry, False))
 
