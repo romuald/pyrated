@@ -46,8 +46,8 @@ class TestRlist(unittest.TestCase):
     def test_actual_time(self):
         # A test without FakeTime
 
-        # 10 hits in 20ms
-        rl = RatelimitList(10, 0.02)
+        # 10 hits in 100ms
+        rl = RatelimitList(10, 0.1)
 
         # 10 hits are okay
         for _ in range(10):
@@ -59,7 +59,7 @@ class TestRlist(unittest.TestCase):
         assert rl.hit('another-key') is False
 
         # Waiting the whole period we can go on again
-        sleep(0.02)
+        sleep(0.1)
         
         for _ in range(10):
             assert rl.hit('a-key') is True

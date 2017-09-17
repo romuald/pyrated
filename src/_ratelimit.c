@@ -2,7 +2,6 @@
 #include "structmember.h"
 
 #include <time.h>
-#include <sys/time.h>
 #include <stdbool.h>
 
 #ifdef __APPLE__
@@ -57,7 +56,14 @@ static uint64_t naow() {
     }
 
     return absolute * sTimebaseInfo.numer / sTimebaseInfo.denom;
+#elif defined(_WIN32)
+    /* Warning (from documentation)
 
+    The resolution of the GetTickCount64 function is limited to
+    the resolution of the system timer, which is typically in
+    the range of 10 milliseconds to 16 milliseconds
+    */
+    return (uint64_t)GetTickCount64();
 #else
     struct timespec timecheck;
 
