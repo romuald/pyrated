@@ -26,17 +26,6 @@ set_fake_now(PyObject *cls, PyObject *args) {
     return Py_None;
 }
 
-
-typedef struct {
-    PyObject_HEAD
-
-    /* Type-specific fields go here. */
-    uint64_t base;     // Base monotonic timestamp
-    uint32_t current;  // Current element in *hits
-    uint32_t csize;    // Currently allocated *hits size
-    uint32_t *hits;
-} Rentry;
-
 static uint64_t naow() {
     // Used for unit tests
     if ( FAKE_NOW != 0 ) {
@@ -71,6 +60,40 @@ static uint64_t naow() {
     return (uint64_t)timecheck.tv_sec * 1000 + (uint64_t)timecheck.tv_nsec / (1000 * 1000);
 #endif
 }
+
+#if 0
+static void reprint(PyObject *obj) {
+    PyObject* repr = PyObject_Repr(obj);
+    PyObject* str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
+    const char *bytes = PyBytes_AS_STRING(str);
+    printf("REPR: %s\n", bytes);
+
+    Py_XDECREF(repr);
+    Py_XDECREF(str);
+}
+#endif
+
+typedef struct {
+    PyObject_HEAD
+
+    /* Type-specific fields go here. */
+    uint64_t base;     // Base monotonic timestamp
+    uint32_t current;  // Current element in *hits
+    uint32_t csize;    // Currently allocated *hits size
+    uint32_t *hits;
+} Rentry;
+
+#if 0
+static void Rentry_debug(Rentry *self) {
+    printf("Rentry %p, base=%llu, current=%u, hits=[", self, self->base, self->current);
+    uint32_t i;
+    printf("%d", self->hits[0]);
+    for (i=1; i < self->csize; i++) {
+        printf(",%d", self->hits[i]);
+    }
+    printf("]\n");
+}
+#endif
 
 static int
 Rentry_init(Rentry *self, PyObject *args, PyObject *kwds)
@@ -168,16 +191,6 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     }
 
     return true;
-}
-
-void Rentry_debug(Rentry *self) {
-    printf("Rentry %p, base=%llu, current=%u, hits=[", self, self->base, self->current);
-    uint32_t i;
-    printf("%d", self->hits[0]);
-    for (i=1; i < self->csize; i++) {
-        printf(",%d", self->hits[i]);
-    }
-    printf("]");
 }
 
 static uint64_t
@@ -296,18 +309,6 @@ RatelimitBase_next_hit(RatelimitBase *self, PyObject *args) {
 
     return PyLong_FromUnsignedLong(result);
 }
-
-#if 0
-static void reprint(PyObject *obj) {
-    PyObject* repr = PyObject_Repr(obj);
-    PyObject* str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
-    const char *bytes = PyBytes_AS_STRING(str);
-    printf("REPR: %s\n", bytes);
-
-    Py_XDECREF(repr);
-    Py_XDECREF(str);
-}
-#endif
 
 static PyObject *
 RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
