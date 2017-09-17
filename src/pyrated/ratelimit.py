@@ -19,10 +19,13 @@ class RatelimitList(RatelimitBase):
         self._entries = {}
 
         if count <= 0:
-            raise ValueError('count must be greater than 0')
+            raise ValueError('count must be greater than 0 (%d)' % count)
 
         if delay <= 0:
-            raise ValueError('delay must be greater than 0')
+            raise ValueError('delay must be greater than 0 (%d)' % delay)
+
+        if delay > 86400 * 45:
+            raise ValueError('maximum delay is 45 days (%d)' % delay)
 
         if isinstance(block_size, float) and block_size <= 1.0:
             self.block_size = math.ceil(count * block_size)
