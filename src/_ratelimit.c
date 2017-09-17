@@ -9,6 +9,7 @@
 #include <mach/mach_time.h>
 #endif
 
+// About 24 days
 #define REBASE_TIME UINT32_MAX / 2
 
 static uint64_t FAKE_NOW = 0;
@@ -362,11 +363,12 @@ RatelimitBase_dealloc(RatelimitBase* self)
 
 static PyMethodDef pyrated_RatelimitBase_Methods[] = {
     {"hit",  (PyCFunction)RatelimitBase_hit, METH_VARARGS,
-     "Hit ratelimit for a specific key"},
+     "\"hit\" the ratelimit for a specific key, will return True if rate is "
+     "within the current limits specifications for that key"},
     {"next_hit",  (PyCFunction)RatelimitBase_next_hit, METH_VARARGS,
      "For how many milliseconds hit() will reply with False"},
     {"cleanup", (PyCFunction)RatelimitBase_cleanup, METH_NOARGS,
-     "Remove expired entries from dictionary"},
+     "Remove expired entries from the list"},
 
     {NULL}        /* Sentinel */
 };
@@ -379,7 +381,7 @@ static PyMemberDef pyrated_RatelimitBase_Members[] = {
     {"_delay", T_INT, offsetof(RatelimitBase, delay), 0,
      "The period (milliseconds) over which the hits are allowed"},
     {"_block_size", T_INT, offsetof(RatelimitBase, block_size), 0,
-     "Block size allocation"},
+     "Allocation block size"},
     {NULL}  /* Sentinel */
 };
 
