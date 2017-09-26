@@ -161,9 +161,9 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
         }
         //printf("realloc %d -> %d\n", self->csize, new_size);
         // XXX check NULL (realloc fail)
-        self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));;
+        self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));
         // Unable to use memset properly
-        //memset(self->hits + self->csize * sizeof(self->hits[0]), 0, self->bsize);
+        // memset(self->hits + self->csize * sizeof(self->hits[0]), 0, (new_size - self->csize) * sizeof(self->hits[0]));
         for ( i = self->csize; i < new_size; i++ ) {
             self->hits[i] = 0;
         }
