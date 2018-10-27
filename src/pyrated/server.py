@@ -60,7 +60,6 @@ class MemcachedServerProtocol(asyncio.Protocol):
 
         self.transport.write(ret + b'\r\n')
 
-
     def handle_delete(self, key, noreply=None):
         removed = self.rlist.remove(key)
 
@@ -72,9 +71,9 @@ class MemcachedServerProtocol(asyncio.Protocol):
         else:
             self.transport.write(b'NOT_FOUND\r\n')
 
-
     def data_received(self, data):
-        #print('got {} bytes: {}, last={!r}'.format(len(data), data[0:20], data[-1]))
+        # print('got {} bytes: {}, last={!r}'.format(len(data),
+        #                                            data[0:20], data[-1]))
 
         lines = (self.buffer + data).split(b'\n')
 
@@ -93,7 +92,6 @@ class MemcachedServerProtocol(asyncio.Protocol):
 class RatelimitDef:
     """
     Ratelimit defintition parsing
-    
         - 1/8 -> max 1 hit in 8 seconds
         - 5/5 -> max 5 hits in 5 seconds
 
@@ -117,6 +115,7 @@ class RatelimitDef:
 
     def __repr__(self):
         return '%r/%r' % (self.count, self.delay)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Foo')
@@ -150,7 +149,6 @@ def main():
     server = loop.run_until_complete(coro)
     interfaces = (str(sock.getsockname()[0]) for sock in server.sockets)
     print('Serving on %s - port %d' % (', '.join(interfaces), args.port))
-
 
     # Serve requests until Ctrl+C is pressed
     protocol_class.rlist.install_cleanup(loop)

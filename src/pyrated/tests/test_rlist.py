@@ -4,15 +4,26 @@ from time import sleep
 from pyrated.ratelimit import RatelimitList
 from pyrated._ratelimit import _set_fake_now, _get_fake_now
 
+
 class FakeTime:
+    """
+    A wrapper object to fake the internal return of ratelimit's time() function
+
+    It's a simple counter, there is no notion of unit here
+
+    with FakeTime(42) as fake:
+        fake.value += 10
+
+    """
     def __init__(self, value=1000):
-        assert value > 0
+        assert value > 0, "Can only use positive fake time values"
 
         self._value = value
 
     def __enter__(self):
         if _get_fake_now() != 0:
             raise RuntimeError('Unable to nest FakeTime')
+
         _set_fake_now(self._value)
         return self
 
@@ -25,7 +36,7 @@ class FakeTime:
 
     @value.setter
     def value(self, value):
-        assert value > 0
+        assert value > 0, "Can only use positive fake time values"
 
         if _get_fake_now() != 0:
             assert value >= self.value, 'FakeTime can only increase value'
@@ -60,7 +71,7 @@ class TestRlist(unittest.TestCase):
 
         # Waiting the whole period we can go on again
         sleep(0.1)
-        
+
         for _ in range(10):
             assert rl.hit('a-key') is True
             assert rl.hit('another-key') is True
@@ -75,7 +86,6 @@ class TestRlist(unittest.TestCase):
                 assert rl.hit('a-key') is True
                 assert rl.hit('another-key') is True
 
-
             # 11th hit fails
             assert rl.hit('a-key') is False
             assert rl.hit('another-key') is False
@@ -85,7 +95,7 @@ class TestRlist(unittest.TestCase):
             for _ in range(10):
                 assert rl.hit('a-key') is True
                 assert rl.hit('another-key') is True
-    
+
     def test_sliding_time(self):
         # 2 hits per second
         rl = RatelimitList(2, 1)
@@ -101,10 +111,6 @@ class TestRlist(unittest.TestCase):
                 assert rl.hit('key') is False
                 fake += 100
 
-            #fake += 99
-            #assert rl.hit('key') is False
-
-            #fake += 1
             assert rl.hit('key') is True
             assert rl.hit('key') is False
 
@@ -163,7 +169,7 @@ class TestRlist(unittest.TestCase):
     def test_time_rebase(self):
         # Test that the internal "rebase" of time base works
         # (avoid uint32 overflow)
-        # The maximum milliseconds storable in a uint32 is around 49 days
+        # The maximum milliseconds storable in an uint32 is about 49 days
         HALFDAY = int((86400 * 1000) / 2)
 
         # 2 hits per day, for 70 days

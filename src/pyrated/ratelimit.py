@@ -3,6 +3,7 @@ import asyncio
 
 from ._ratelimit import RatelimitBase
 
+
 class RatelimitList(RatelimitBase):
     """Not actually a list"""
 
