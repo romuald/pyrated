@@ -212,28 +212,30 @@ Rentry_next_hit(Rentry* self, uint32_t size, uint32_t delay) {
     return 0;
 }
 
+#define STATE_VERSION 0
+#define STATE_BASE 1
+#define STATE_CURRENT 2
+#define STATE_CSIZE 3
+#define STATE_HITS 4
+
 static PyObject *
 Rentry_get_state(Rentry* self) {
-    PyObject *ret = PyDict_New();
-    PyObject *tmp;
+    PyObject *state, *tmp;
+    state  = PyTuple_New(5);
 
-    tmp = PyLong_FromUnsignedLong(self->base);
-    PyDict_SetItemString(ret, "base", tmp);
-    Py_DECREF(tmp);
-    
-    tmp = PyLong_FromUnsignedLong(self->current);
-    PyDict_SetItemString(ret, "current", tmp);
-    Py_DECREF(tmp);
-
-    tmp = PyLong_FromUnsignedLong(self->csize);
-    PyDict_SetItemString(ret, "csize", tmp);
-    Py_DECREF(tmp);
+    PyTuple_SetItem(state, STATE_VERSION,
+        PyLong_FromUnsignedLong(1));
+    PyTuple_SetItem(state, STATE_BASE,
+        PyLong_FromUnsignedLong(self->base));
+    PyTuple_SetItem(state, STATE_CURRENT,
+        PyLong_FromUnsignedLong(self->current));
+    PyTuple_SetItem(state, STATE_CSIZE,
+        PyLong_FromUnsignedLong(self->csize));
 
     tmp = PyByteArray_FromStringAndSize((char*)self->hits, self->csize);
-    PyDict_SetItemString(ret, "hits", tmp);
-    Py_DECREF(tmp);
+    PyTuple_SetItem(state, STATE_HITS, tmp);
 
-    return ret;
+    return state;
 }
 
 static PyObject *
@@ -241,32 +243,17 @@ Rentry_set_state(Rentry* self, PyObject *args) {
     PyObject *state;
     if (! PyArg_ParseTuple(args, "O", &state) )
         return NULL;
-    
-    PyObject *tmp;
 
-    tmp = PyDict_GetItemString(state, "base");
-    self->base = PyLong_AsLong(tmp);
-    //Py_DECREF(tmp);
+    self->base = PyLong_AsLong(PyTuple_GetItem(state, STATE_BASE));
+    self->current = PyLong_AsLong(PyTuple_GetItem(state, STATE_CURRENT));
+    self->csize = PyLong_AsLong(PyTuple_GetItem(state, STATE_CSIZE));
 
-    tmp = PyDict_GetItemString(state, "current");
-    self->current = PyLong_AsLong(tmp);
-    //Py_DECREF(tmp);
-
-    tmp = PyDict_GetItemString(state, "csize");
-    self->csize = PyLong_AsLong(tmp);
-    //Py_DECREF(tmp);
-    
-
-    //self->hits = NULL;
-    self->hits = calloc(self->csize, sizeof(uint32_t));
-    
-    tmp = PyDict_GetItemString(state, "hits");
-
-    char * tmp2 = PyByteArray_AsString(tmp);
-    memcpy(self->hits, tmp2, self->csize);
-
+    self->hits = calloc(self->csize, sizeof(self->hits[0]));
+    char *hits = PyByteArray_AsString(PyTuple_GetItem(state, STATE_HITS));
+    memcpy(self->hits, hits, self->csize);
 
     Py_DECREF(state);
+
     Py_INCREF(Py_None);
     return Py_None;
 }
