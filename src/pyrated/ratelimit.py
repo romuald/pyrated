@@ -68,6 +68,22 @@ class RatelimitList(RatelimitBase):
     def remove(self, entry):
         return bool(self._entries.pop(entry, False))
 
+    def __getstate__(self):
+        ret = {
+            '_count': self._count,
+            '_delay': self._delay,
+            '_block_size': self._block_size,
+            '_entries': self._entries,
+        }
+
+        return ret
+
+    def __setstate__(self, state):
+        self._count = state['_count']
+        self._delay = state['_delay']
+        self._block_size = state['_block_size']
+        self._entries = state['_entries']
+
     def install_cleanup(self, loop, interval=30.0):
         if interval < 0:
             raise ValueError('Interval must be positive')

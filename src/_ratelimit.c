@@ -141,11 +141,11 @@ Rentry_maybe_rebase(Rentry* self, uint64_t now) {
 
 static bool
 Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
-/*
+    /*
     uint32_t size, delay;
     if (! PyArg_ParseTuple(args, "II", &size, &delay))
         return NULL;
-*/
+    */
     uint64_t now = naow();
 
     if ( self->base == 0 ) {
@@ -212,6 +212,72 @@ Rentry_next_hit(Rentry* self, uint32_t size, uint32_t delay) {
     return 0;
 }
 
+static PyObject *
+Rentry_get_state(Rentry* self) {
+    PyObject *ret = PyDict_New();
+    PyObject *tmp;
+
+    tmp = PyLong_FromUnsignedLong(self->base);
+    PyDict_SetItemString(ret, "base", tmp);
+    Py_DECREF(tmp);
+    
+    tmp = PyLong_FromUnsignedLong(self->current);
+    PyDict_SetItemString(ret, "current", tmp);
+    Py_DECREF(tmp);
+
+    tmp = PyLong_FromUnsignedLong(self->csize);
+    PyDict_SetItemString(ret, "csize", tmp);
+    Py_DECREF(tmp);
+
+    tmp = PyByteArray_FromStringAndSize((char*)self->hits, self->csize);
+    PyDict_SetItemString(ret, "hits", tmp);
+    Py_DECREF(tmp);
+
+    return ret;
+}
+
+static PyObject *
+Rentry_set_state(Rentry* self, PyObject *args) {
+    PyObject *state;
+    if (! PyArg_ParseTuple(args, "O", &state) )
+        return NULL;
+    
+    PyObject *tmp;
+
+    tmp = PyDict_GetItemString(state, "base");
+    self->base = PyLong_AsLong(tmp);
+    //Py_DECREF(tmp);
+
+    tmp = PyDict_GetItemString(state, "current");
+    self->current = PyLong_AsLong(tmp);
+    //Py_DECREF(tmp);
+
+    tmp = PyDict_GetItemString(state, "csize");
+    self->csize = PyLong_AsLong(tmp);
+    //Py_DECREF(tmp);
+    
+
+    //self->hits = NULL;
+    self->hits = calloc(self->csize, sizeof(uint32_t));
+    
+    tmp = PyDict_GetItemString(state, "hits");
+
+    char * tmp2 = PyByteArray_AsString(tmp);
+    memcpy(self->hits, tmp2, self->csize);
+
+
+    Py_DECREF(state);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyMethodDef pyrated_Rentry_Methods[] = {
+    {"__getstate__", (PyCFunction)Rentry_get_state, METH_NOARGS,
+     "Serialize function"},
+     {"__setstate__", (PyCFunction)Rentry_set_state, METH_VARARGS,
+     "Deserialize function"},
+};
+
 static PyTypeObject pyrated_RentryType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "pyrated._ratelimit.Rentry",  /* tp_name */
@@ -240,7 +306,7 @@ static PyTypeObject pyrated_RentryType = {
     0,                            /* tp_weaklistoffset */
     0,                            /* tp_iter */
     0,                            /* tp_iternext */
-    0,                            /* tp_methods */
+    pyrated_Rentry_Methods,       /* tp_methods */
     0,                            /* tp_members */
     0,                            /* tp_getset */
     0,                            /* tp_base */
@@ -252,7 +318,6 @@ static PyTypeObject pyrated_RentryType = {
     0,                            /* tp_alloc */
     PyType_GenericNew,            /* tp_new */
 };
-
 
 typedef struct {
     PyObject_HEAD
