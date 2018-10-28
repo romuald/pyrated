@@ -1,4 +1,5 @@
 import unittest
+import pickle
 from time import sleep
 
 from pyrated.ratelimit import RatelimitList
@@ -225,3 +226,24 @@ class TestRlist(unittest.TestCase):
 
             assert rl.next_hit('woot') == 0
             assert rl.hit('woot') is True
+
+    def test_serialization(self):
+        base = RatelimitList(10, 10)
+
+        with FakeTime() as fake:
+            for i in range(9):
+                assert base.hit('foo') is True
+                fake += 10
+
+            copy = pickle.loads(pickle.dumps(base))
+
+            # The 2 objects are distinct
+            assert base.hit('foo') is True
+            assert base.hit('foo') is False
+
+            assert copy.hit('foo') is True
+            assert copy.hit('foo') is False
+
+            base.hit('bar')
+            assert 'bar' in base
+            assert 'bar' not in copy
