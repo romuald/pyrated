@@ -232,7 +232,7 @@ Rentry_get_state(Rentry* self) {
     PyTuple_SetItem(state, STATE_CSIZE,
         PyLong_FromUnsignedLong(self->csize));
 
-    tmp = PyByteArray_FromStringAndSize((char*)self->hits, self->csize);
+    tmp = PyBytes_FromStringAndSize((char*)self->hits, self->csize);
     PyTuple_SetItem(state, STATE_HITS, tmp);
 
     return state;
@@ -249,7 +249,7 @@ Rentry_set_state(Rentry* self, PyObject *args) {
     self->csize = PyLong_AsLong(PyTuple_GetItem(state, STATE_CSIZE));
 
     self->hits = calloc(self->csize, sizeof(self->hits[0]));
-    char *hits = PyByteArray_AsString(PyTuple_GetItem(state, STATE_HITS));
+    char *hits = PyBytes_AsString(PyTuple_GetItem(state, STATE_HITS));
     memcpy(self->hits, hits, self->csize);
 
     Py_DECREF(state);
