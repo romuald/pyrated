@@ -10,7 +10,7 @@ class FakeTime:
     """
     A wrapper object to fake the internal return of ratelimit's time() function
 
-    It's a simple counter, there is no notion of unit here
+    It's a simple counter, units are milliseconds
 
     with FakeTime(42) as fake:
         fake.value += 10
