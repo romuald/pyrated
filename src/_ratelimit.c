@@ -17,6 +17,7 @@ static PyObject *
 get_fake_now(PyObject *cls, PyObject *args) {
     return PyLong_FromLong(FAKE_NOW);
 }
+
 static PyObject *
 set_fake_now(PyObject *cls, PyObject *args) {
     if (! PyArg_ParseTuple(args, "K", &FAKE_NOW) )
@@ -61,6 +62,17 @@ static uint64_t naow() {
 #endif
 }
 
+
+
+typedef struct {
+    PyObject_HEAD
+
+    uint64_t base;     // Base monotonic timestamp
+    uint32_t current;  // Current element in *hits
+    uint32_t csize;    // Currently allocated *hits size
+    uint32_t *hits;
+} Rentry;
+
 #if 0
 static void reprint(PyObject *obj) {
     PyObject* repr = PyObject_Repr(obj);
@@ -71,19 +83,7 @@ static void reprint(PyObject *obj) {
     Py_XDECREF(repr);
     Py_XDECREF(str);
 }
-#endif
 
-typedef struct {
-    PyObject_HEAD
-
-    /* Type-specific fields go here. */
-    uint64_t base;     // Base monotonic timestamp
-    uint32_t current;  // Current element in *hits
-    uint32_t csize;    // Currently allocated *hits size
-    uint32_t *hits;
-} Rentry;
-
-#if 0
 static void Rentry_debug(Rentry *self) {
     printf("Rentry %p, base=%llu, current=%u, hits=[", self, self->base, self->current);
     uint32_t i;
@@ -113,17 +113,21 @@ Rentry_dealloc(Rentry* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+
+/*
+    If this entry lived for more than X days, rewrite the internal references
+    relative to now so they won't overflow
+*/
 static void
 Rentry_maybe_rebase(Rentry* self, uint64_t now) {
     if ( now - self->base < REBASE_TIME ) {
         return;
     }
 
-    //printf("rehash, now=%llu, base=%llu, dd=%llu, z==%d\n", now, pia->base, now-pia->base, z);
     uint32_t i;
     uint64_t min = 0;
 
-    for ( i=0; i < self->csize; i ++) {
+    for ( i=0; i < self->csize; i++ ) {
         if ( min != 0 && self->hits[i] != 0 && self->hits[i] < min ) {
             min = self->hits[i];
         }
@@ -139,13 +143,12 @@ Rentry_maybe_rebase(Rentry* self, uint64_t now) {
     self->base = new_base;
 }
 
+/*
+    Records a hit for that entry at current time.
+    Returning FALSE if the ratelimit was reached, and TRUE if it was not.
+*/
 static bool
 Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
-    /*
-    uint32_t size, delay;
-    if (! PyArg_ParseTuple(args, "II", &size, &delay))
-        return NULL;
-    */
     uint64_t now = naow();
 
     if ( self->base == 0 ) {
@@ -159,11 +162,16 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
             // Don't allocate more than necessary
             new_size = size;
         }
+
         //printf("realloc %d -> %d\n", self->csize, new_size);
         // XXX check NULL (realloc fail)
         self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));
+
+        /*
         // Unable to use memset properly
-        // memset(self->hits + self->csize * sizeof(self->hits[0]), 0, (new_size - self->csize) * sizeof(self->hits[0]));
+        memset(self->hits + self->csize * sizeof(self->hits[0]),
+               0, (new_size - self->csize) * sizeof(self->hits[0]));
+        */
         for ( i = self->csize; i < new_size; i++ ) {
             self->hits[i] = 0;
         }
@@ -176,7 +184,8 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     now -= self->base;
 
     uint64_t last = self->hits[self->current];
-    //printf("Check, base=%llu, current=%u now=%llu, last=%llu ", self->base, self->current, now, last);
+    //printf("Check, base=%llu, current=%u now=%llu, last=%llu ",
+    //       self->base, self->current, now, last);
     //printf("Hit, now=%ld, last=%ld\n", now, last);
 
     if ( last != 0 && (now - last) < delay ) {
@@ -193,6 +202,10 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     return true;
 }
 
+/*
+    Returns the interval (in milliseconds) after which a rateilmited entry
+    will be available again
+*/
 static uint64_t
 Rentry_next_hit(Rentry* self, uint32_t size, uint32_t delay) {
     if ( self->csize < size ) {
@@ -218,6 +231,7 @@ Rentry_next_hit(Rentry* self, uint32_t size, uint32_t delay) {
 #define STATE_CSIZE 3
 #define STATE_HITS 4
 
+/* Retrieve state for serialization */
 static PyObject *
 Rentry_get_state(Rentry* self) {
     PyObject *state, *tmp;
@@ -238,6 +252,7 @@ Rentry_get_state(Rentry* self) {
     return state;
 }
 
+/* Re-set state from the get_state serialization */
 static PyObject *
 Rentry_set_state(Rentry* self, PyObject *args) {
     PyObject *state;
@@ -311,7 +326,6 @@ static PyTypeObject pyrated_RentryType = {
 typedef struct {
     PyObject_HEAD
 
-    /* Type-specific fields go here. */
     PyObject *entries;   // <dict> of str -> Rentry
     uint32_t count;     // how many hits per...
     uint32_t delay;    // how many milliseconds
@@ -319,6 +333,9 @@ typedef struct {
 } RatelimitBase;
 
 
+/*
+    Hit an entry in the table, creating it if need be
+*/
 static PyObject *
 RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
     PyObject *key, *result;
@@ -346,6 +363,9 @@ RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
     return result;
 }
 
+/*
+    Table version of the Rentry_next_hit call (do not create new entries)
+*/
 static PyObject *
 RatelimitBase_next_hit(RatelimitBase *self, PyObject *args) {
     PyObject *key;
@@ -364,6 +384,10 @@ RatelimitBase_next_hit(RatelimitBase *self, PyObject *args) {
     return PyLong_FromUnsignedLong(result);
 }
 
+/*
+    Cleanup entries in the table that have expired
+    (no hit since the total delay)
+*/
 static PyObject *
 RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
     PyObject *key, *value = NULL;
@@ -381,16 +405,16 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
         Rentry *entry = (Rentry*) value;
 
         if ( entry->csize == 0 ) {
-            // ADD
-
+            // Remove entry
         } else {
             uint32_t index =
                 entry->current == 0 ? entry->csize - 1 : entry->current - 1;
             uint64_t expires_at = entry->base + entry->hits[index] + self->delay;
 
             if ( expires_at <= now ) {
-                // ADD
+                // Remove entry
             } else {
+                // SKIP
                 continue;
             }
         }
@@ -398,17 +422,16 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
         // Bounds of array reached
         if ( count == size ) {
             size += BSIZE;
+            // XXX check for failed call
             to_delete = realloc(to_delete, size * sizeof(PyObject*));
         }
         to_delete[count++] = key;
-        //printf("%zd, %s\n", pos, PyUnicode_AsUTF8(key));
     }
 
     uint32_t i;
-    for ( i = 0; i < count; i++) {
+    for ( i = 0; i < count; i++ ) {
         PyDict_DelItem(self->entries, to_delete[i]);
     }
-
     free(to_delete);
 
     return PyLong_FromLong((long)count);
@@ -510,11 +533,9 @@ PyInit__ratelimit(void)
 {
     PyObject* module;
 
-    //pyrated_RentryType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&pyrated_RentryType) < 0)
         return NULL;
 
-    //pyrated_RatelimiBaseType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&pyrated_RatelimiBaseType) < 0)
         return NULL;
 
