@@ -27,7 +27,7 @@ set_fake_now(PyObject *cls, PyObject *args) {
     return Py_None;
 }
 
-static uint64_t naow() {
+static uint64_t naow(void) {
     // Used for unit tests
     if ( FAKE_NOW != 0 ) {
         return FAKE_NOW;
