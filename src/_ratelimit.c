@@ -263,6 +263,8 @@ static PyMethodDef pyrated_Rentry_Methods[] = {
      "Serialize function"},
      {"__setstate__", (PyCFunction)Rentry_set_state, METH_VARARGS,
      "Deserialize function"},
+
+      {NULL}        /* Sentinel */
 };
 
 static PyTypeObject pyrated_RentryType = {
