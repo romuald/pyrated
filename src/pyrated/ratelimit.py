@@ -1,5 +1,6 @@
 import math
 import asyncio
+import weakref
 
 from ._ratelimit import RatelimitBase
 
@@ -134,12 +135,15 @@ class Ratelimit(RatelimitBase):
         """
         Running task of the install_cleanup method, do a cleanup of the list
         every *interval* seconds
+
         """
+        # Reference workaround: when a Ratelimit object has been deleted,
+        # this coroutine would still hold a reference to it.
+        self = weakref.proxy(self)
+
         while True:
             try:
                 yield from asyncio.sleep(interval)
-
                 self.cleanup()
-
-            except asyncio.CancelledError:
+            except (ReferenceError, asyncio.CancelledError):
                 break
