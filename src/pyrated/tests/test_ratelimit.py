@@ -1,4 +1,4 @@
-import gc
+import weakref
 import pickle
 import asyncio
 import unittest
@@ -271,22 +271,27 @@ class TestRatelimit(unittest.TestCase):
 
     def test_cleanup_reference(self):
         # deleting the last reference to an object will stop the cleanup task
-        def object_count():
-            return len([1 for x in gc.get_objects()
-                        if isinstance(x, Ratelimit)])
+
+        def task_count(loop):
+            # Task.all_tasks deprecated, but
+            # asyncio.all_tasks introduced in python 3.7
+            try:
+                return len(asyncio.all_tasks(loop))
+            except AttributeError:
+                return len(asyncio.Task.all_tasks(loop))
 
         loop = asyncio.new_event_loop()
 
         rl = Ratelimit(10, 10)
+        ref = weakref.ref(rl)
+
         rl.install_cleanup(loop, 0.005)
 
-        count = object_count()
-
         loop.run_until_complete(asyncio.sleep(0.01))
+        assert task_count(loop) == 1
 
         del rl
-
         loop.run_until_complete(asyncio.sleep(0.02))
 
-        # XXX use mock on cleanup if possible
-        assert object_count() == count - 1
+        assert ref() is None
+        assert task_count(loop) == 0
