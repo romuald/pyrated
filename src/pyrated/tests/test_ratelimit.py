@@ -2,7 +2,7 @@ import unittest
 import pickle
 from time import sleep
 
-from pyrated.ratelimit import RatelimitList
+from pyrated.ratelimit import Ratelimit
 from pyrated._ratelimit import _set_fake_now, _get_fake_now
 
 
@@ -53,13 +53,13 @@ class FakeTime:
         return 'FakeTime at %d' % self.value
 
 
-class TestRlist(unittest.TestCase):
+class TestRatelimit(unittest.TestCase):
 
     def test_actual_time(self):
         # A test without FakeTime
 
         # 10 hits in 100ms
-        rl = RatelimitList(10, 0.1)
+        rl = Ratelimit(10, 0.1)
 
         # 10 hits are okay
         for _ in range(10):
@@ -79,7 +79,7 @@ class TestRlist(unittest.TestCase):
 
     def test_static_time(self):
         # 15 hits in 10 seconds
-        rl = RatelimitList(15, 10)
+        rl = Ratelimit(15, 10)
 
         with FakeTime() as fake:
             # 10 hits are okay
@@ -99,7 +99,7 @@ class TestRlist(unittest.TestCase):
 
     def test_sliding_time(self):
         # 2 hits per second
-        rl = RatelimitList(2, 1)
+        rl = Ratelimit(2, 1)
 
         with FakeTime() as fake:
 
@@ -117,7 +117,7 @@ class TestRlist(unittest.TestCase):
 
     def test_cleanup(self):
         # 5 hits accross 10 seconds
-        rl = RatelimitList(5, 10)
+        rl = Ratelimit(5, 10)
 
         with FakeTime() as fake:
             rl.hit('first')
@@ -148,7 +148,7 @@ class TestRlist(unittest.TestCase):
             assert len(rl) == 0
 
     def test_cleanup_rollover(self):
-        rl = RatelimitList(100, 10)
+        rl = Ratelimit(100, 10)
         last = None  # last succesful hit (which determine expiration time)
 
         with FakeTime() as fake:
@@ -174,7 +174,7 @@ class TestRlist(unittest.TestCase):
         HALFDAY = int((86400 * 1000) / 2)
 
         # 2 hits per day, for 70 days
-        rl = RatelimitList(2, HALFDAY * 2 / 1000)
+        rl = Ratelimit(2, HALFDAY * 2 / 1000)
 
         with FakeTime() as fake:
             for i in range(70):
@@ -192,7 +192,7 @@ class TestRlist(unittest.TestCase):
 
     def test_next_hit(self):
         # 10 hits over 10 seconds
-        rl = RatelimitList(10, 10)
+        rl = Ratelimit(10, 10)
 
         with FakeTime() as fake:
             # Single hit every 100ms for one second
@@ -228,7 +228,7 @@ class TestRlist(unittest.TestCase):
             assert rl.hit('woot') is True
 
     def test_serialization(self):
-        base = RatelimitList(10, 10)
+        base = Ratelimit(10, 10)
 
         with FakeTime() as fake:
             for i in range(9):

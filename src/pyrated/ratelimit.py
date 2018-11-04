@@ -4,7 +4,7 @@ import asyncio
 from ._ratelimit import RatelimitBase
 
 
-class RatelimitList(RatelimitBase):
+class Ratelimit(RatelimitBase):
     """Not actually a list"""
 
     def __init__(self, count, delay, block_size=0.20):

@@ -6,7 +6,7 @@ import argparse
 import functools
 
 
-from pyrated.ratelimit import RatelimitList
+from pyrated.ratelimit import Ratelimit
 
 
 class MemcachedServerProtocol(asyncio.Protocol):
