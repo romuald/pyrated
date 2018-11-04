@@ -1,5 +1,8 @@
-import unittest
+import gc
 import pickle
+import asyncio
+import unittest
+
 from time import sleep
 
 from pyrated.ratelimit import Ratelimit
@@ -265,3 +268,25 @@ class TestRatelimit(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             base.block_size = -29
+
+    def test_cleanup_reference(self):
+        # deleting the last reference to an object will stop the cleanup task
+        def object_count():
+            return len([1 for x in gc.get_objects()
+                        if isinstance(x, Ratelimit)])
+
+        loop = asyncio.new_event_loop()
+
+        rl = Ratelimit(10, 10)
+        rl.install_cleanup(loop, 0.005)
+
+        count = object_count()
+
+        loop.run_until_complete(asyncio.sleep(0.01))
+
+        del rl
+
+        loop.run_until_complete(asyncio.sleep(0.02))
+
+        # XXX use mock on cleanup if possible
+        assert object_count() == count - 1
