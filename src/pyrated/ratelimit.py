@@ -39,22 +39,42 @@ class Ratelimit(RatelimitBase):
 
     @property
     def count(self):
+        """
+        Number of hits per period allowed by this list
+
+        """
         return self._count
 
     @property
     def delay(self):
+        """
+        Time frame in which hits are are allowed
+
+        """
         return float(self._delay) / 1000
 
     @property
     def block_size(self):
+        """
+        Size of memory pre-allocations
+
+        For example a block size of 10 for a list of 25 will
+        allocate 10 slots on the first hit, 10 new more on the 11th hit,
+        and finally 5 slots on the 21th hit
+
+        """
+
         return self._block_size
 
     @block_size.setter
     def block_size(self, value):
+        if not isinstance(value, int):
+            raise TypeError('block_size is integer only')
+
         if value <= 0:
             raise ValueError('block_size must be greater than 0')
 
-        self._block_size = value
+        self._block_size = int(value)
 
     def __iter__(self):
         return iter(self._entries)
@@ -85,20 +105,36 @@ class Ratelimit(RatelimitBase):
         self._entries = state['_entries']
 
     def install_cleanup(self, loop, interval=30.0):
+        """
+        Install a cleanup task (periodical) in an asyncio loop,
+        running every interval seconds
+
+        """
         if interval < 0:
             raise ValueError('Interval must be positive')
+
+        if self._cleanup_task is not None:
+            self._cleanup_task.cancel()
 
         self._cleanup_task = loop.create_task(self.cleanup_run(interval))
 
         return self._cleanup_task
 
     def remove_cleanup(self):
+        """
+        Remove/cancel the current cleanup task
+
+        """
         if self._cleanup_task:
             self._cleanup_task.cancel()
             self._cleanup_task = None
 
     @asyncio.coroutine
     def cleanup_run(self, interval):
+        """
+        Running task of the install_cleanup method, do a cleanup of the list
+        every *interval* seconds
+        """
         while True:
             try:
                 yield from asyncio.sleep(interval)

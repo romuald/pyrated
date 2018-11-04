@@ -247,3 +247,21 @@ class TestRatelimit(unittest.TestCase):
             base.hit('bar')
             assert 'bar' in base
             assert 'bar' not in copy
+
+    def test_block_size(self):
+        base = Ratelimit(10, 10)
+
+        base.block_size = 5
+        assert base.block_size == 5
+
+        # Currently there is no upper bound, restriction
+        # since the implementation won't over-allocate
+
+        with self.assertRaises(TypeError):
+            base.block_size = 'foo'
+
+        with self.assertRaises(TypeError):
+            base.block_size = 0.5
+
+        with self.assertRaises(ValueError):
+            base.block_size = -29
