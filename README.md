@@ -69,7 +69,7 @@ Once one minute and one second is elapsed, the client will gain 9 "slots", and 2
 
 The ratelimit logic is implemented in C for both performance and memory usage (since all timestamps are stored, the difference is very noticeable if you have a high query limit)
 
-The precision of the timestamps is millisecond, the maximum time frame allowed is 49 days
+The precision of the timestamps is millisecond, the maximum time frame allowed is 45 days
 
 
 ### Command line options
