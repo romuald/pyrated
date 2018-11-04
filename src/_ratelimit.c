@@ -148,7 +148,7 @@ Rentry_maybe_rebase(Rentry* self, uint64_t now) {
     Returning FALSE if the ratelimit was reached, and TRUE if it was not.
 */
 static bool
-Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
+Rentry_hit(Rentry* self, uint32_t size, uint32_t period, uint32_t bsize) {
     uint64_t now = naow();
 
     if ( self->base == 0 ) {
@@ -188,7 +188,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     //       self->base, self->current, now, last);
     //printf("Hit, now=%ld, last=%ld\n", now, last);
 
-    if ( last != 0 && (now - last) < delay ) {
+    if ( last != 0 && (now - last) < period ) {
         return false;
     }
 
@@ -207,7 +207,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t delay, uint32_t bsize) {
     will be available again
 */
 static uint64_t
-Rentry_next_hit(Rentry* self, uint32_t size, uint32_t delay) {
+Rentry_next_hit(Rentry* self, uint32_t size, uint32_t period) {
     if ( self->csize < size ) {
         return 0;
     }
@@ -219,8 +219,8 @@ Rentry_next_hit(Rentry* self, uint32_t size, uint32_t delay) {
 
     uint64_t last = self->hits[self->current];
 
-    if ( last != 0 && (now - last) < delay ) {
-        return last + delay - now;
+    if ( last != 0 && (now - last) < period ) {
+        return last + period - now;
     }
     return 0;
 }
@@ -328,7 +328,7 @@ typedef struct {
 
     PyObject *entries;   // <dict> of str -> Rentry
     uint32_t count;     // how many hits per...
-    uint32_t delay;    // how many milliseconds
+    uint32_t period;    // how many milliseconds
     uint32_t block_size; // By how much entry->*hits will grow until it reaches max size
 } RatelimitBase;
 
@@ -355,7 +355,7 @@ RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
         Py_DECREF(value);
     }
 
-    result = Rentry_hit(value, self->count, self->delay, self->block_size) ?
+    result = Rentry_hit(value, self->count, self->period, self->block_size) ?
         Py_True : Py_False;
 
     Py_INCREF(result);
@@ -379,14 +379,14 @@ RatelimitBase_next_hit(RatelimitBase *self, PyObject *args) {
         return PyLong_FromUnsignedLong(0);
     }
 
-    uint64_t result = Rentry_next_hit(value, self->count, self->delay);
+    uint64_t result = Rentry_next_hit(value, self->count, self->period);
 
     return PyLong_FromUnsignedLong(result);
 }
 
 /*
     Cleanup entries in the table that have expired
-    (no hit since the total delay)
+    (no hit since the total period)
 */
 static PyObject *
 RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
@@ -409,7 +409,7 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
         } else {
             uint32_t index =
                 entry->current == 0 ? entry->csize - 1 : entry->current - 1;
-            uint64_t expires_at = entry->base + entry->hits[index] + self->delay;
+            uint64_t expires_at = entry->base + entry->hits[index] + self->period;
 
             if ( expires_at <= now ) {
                 // Remove entry
@@ -462,8 +462,8 @@ static PyMemberDef pyrated_RatelimitBase_Members[] = {
      "Dict of key->Rentry"},
     {"_count", T_INT, offsetof(RatelimitBase, count), 0,
      "How much hits are allowed"},
-    {"_delay", T_INT, offsetof(RatelimitBase, delay), 0,
-     "The period (milliseconds) over which the hits are allowed"},
+    {"_period", T_INT, offsetof(RatelimitBase, period), 0,
+     "The period (in milliseconds) over which the hits are allowed"},
     {"_block_size", T_INT, offsetof(RatelimitBase, block_size), 0,
      "Allocation block size"},
     {NULL}  /* Sentinel */

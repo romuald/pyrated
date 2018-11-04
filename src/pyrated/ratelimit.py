@@ -7,10 +7,10 @@ from ._ratelimit import RatelimitBase
 class Ratelimit(RatelimitBase):
     """Not actually a list"""
 
-    def __init__(self, count, delay, block_size=0.20):
+    def __init__(self, count, period, block_size=0.20):
         """
         :param count: max number of hits for an entry of the list
-        :param delay: in seconds, the period in which each entry is limited
+        :param period: in seconds, the period in which each entry is limited
         :param block_size: by how much the memory will be allocated for each
             entry, defaults to a fifth of the maximum memory used
             Meaning at "worst" 5 memory allocations, or at "worst" a fifth
@@ -22,11 +22,11 @@ class Ratelimit(RatelimitBase):
         if count <= 0:
             raise ValueError('count must be greater than 0 (%d)' % count)
 
-        if delay <= 0:
-            raise ValueError('delay must be greater than 0 (%d)' % delay)
+        if period <= 0:
+            raise ValueError('period must be greater than 0 (%d)' % period)
 
-        if delay > 86400 * 45:
-            raise ValueError('maximum delay is 45 days (%d)' % delay)
+        if period > 86400 * 45:
+            raise ValueError('maximum period is 45 days (%d)' % period)
 
         if isinstance(block_size, float) and block_size <= 1.0:
             self.block_size = math.ceil(count * block_size)
@@ -34,7 +34,7 @@ class Ratelimit(RatelimitBase):
             self.block_size = block_size
 
         self._count = count
-        self._delay = int(delay * 1000)
+        self._period = int(period * 1000)
         self._cleanup_task = None
 
     @property
@@ -46,12 +46,12 @@ class Ratelimit(RatelimitBase):
         return self._count
 
     @property
-    def delay(self):
+    def period(self):
         """
         Time frame in which hits are are allowed
 
         """
-        return float(self._delay) / 1000
+        return float(self._period) / 1000
 
     @property
     def block_size(self):
@@ -91,7 +91,7 @@ class Ratelimit(RatelimitBase):
     def __getstate__(self):
         ret = {
             '_count': self._count,
-            '_delay': self._delay,
+            '_period': self._period,
             '_block_size': self._block_size,
             '_entries': self._entries,
         }
@@ -100,7 +100,7 @@ class Ratelimit(RatelimitBase):
 
     def __setstate__(self, state):
         self._count = state['_count']
-        self._delay = state['_delay']
+        self._period = state['_period']
         self._block_size = state['_block_size']
         self._entries = state['_entries']
 
