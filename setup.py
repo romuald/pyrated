@@ -1,7 +1,7 @@
 import sys
 import shlex
 
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, Extension
 from setuptools.command.test import test as TestCommand
 
 if sys.version_info.major < 3:
@@ -29,10 +29,10 @@ class PyTest(TestCommand):
 setup(
     name = 'pyrated',
     version = '1.0',
-    #packages=find_packages('src/pyrated'),
+
+    packages=['pyrated'],
     package_dir={'':'src'},
 
-    # py_modules = ('src/pyrated',),
     description = 'The Python ratelimit daemon',
     ext_modules = [ratelimit],
     entry_points = {
