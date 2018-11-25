@@ -15,6 +15,7 @@ class RatelimitDef:
     Ratelimit defintition parsing
         - 1/8 -> max 1 hit in 8 seconds
         - 5/5 -> max 5 hits in 5 seconds
+        - 5/1m -> max 5 hits in one minute
 
     """
 
@@ -25,21 +26,21 @@ class RatelimitDef:
             raise ValueError
 
         self.count = int(match.group(1))
-        self.delay = int(match.group(2))
+        self.period = int(match.group(2))
 
         if match.group(3) == 'm':
-            self.delay *= 60
+            self.period *= 60
         elif match.group(3) == 'h':
-            self.delay *= 3600
+            self.period *= 3600
         elif match.group(3) == 'd':
-            self.delay *= 86400
+            self.period *= 86400
 
     def __repr__(self):
-        return '%r/%r' % (self.count, self.delay)
+        return '%r/%r' % (self.count, self.period)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Foo')
+def parse_args(args=sys.argv):
+    parser = argparse.ArgumentParser(description='python ratelimit daemon')
     parser.add_argument('definition', type=RatelimitDef,
                         help='The ratelimit definition ([#hits]/[period])')
     parser.add_argument('-s', '--source', action='append',
@@ -47,7 +48,7 @@ def parse_args():
     parser.add_argument('-p', '--port', type=int, default=11211,
                         help='TCP port to listen to')
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # https://bugs.python.org/issue16399 -_-
     if args.source is None:
