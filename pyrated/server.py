@@ -13,7 +13,7 @@ class MemcachedServerProtocol(asyncio.Protocol):
     _class_counter = 0
 
     @classmethod
-    def create_class(cls):
+    def create_class(cls, rlist):
         """
         Allow use of distinct subclasses each sharing their own state
 
@@ -21,6 +21,7 @@ class MemcachedServerProtocol(asyncio.Protocol):
         cls._class_counter += 1
 
         ret = type(cls.__name__ + str(cls._class_counter), (cls, ), {})
+        ret.rlist = rlist
 
         return ret
 
@@ -138,10 +139,10 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Each client connection will create a new protocol instance
-    protocol_class = MemcachedServerProtocol.create_class()
-    protocol_class.rlist = Ratelimit(args.definition.count,
-                                     args.definition.delay)
+    # Each client connection will create a new protocol instance,
+    # but we need a shared state for all connections
+    rlist = Ratelimit(args.definition.count, args.definition.delay)
+    protocol_class = MemcachedServerProtocol.create_class(rlist)
 
     loop = asyncio.get_event_loop()
     coro = loop.create_server(protocol_class, args.source, args.port)
