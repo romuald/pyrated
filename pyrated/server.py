@@ -47,7 +47,7 @@ class MemcachedServerProtocol(asyncio.Protocol):
     def handle_get(self, *keys):
         for key in filter(self.rlist.__contains__, keys):
             value = str(self.rlist.next_hit(key) / 1000)
-            line = 'VALUE %s 0 %d\r\n%s' % (key, len(value), value)
+            data = 'VALUE %s 0 %d\r\n%s\r\n' % (key, len(value), value)
             self.transport.write(line.encode())
 
         self.transport.write(b'END\r\n')
