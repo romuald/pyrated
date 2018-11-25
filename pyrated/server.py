@@ -49,11 +49,11 @@ class MemcachedServerProtocol(asyncio.Protocol):
         for key in filter(self.rlist.__contains__, keys):
             value = str(self.rlist.next_hit(key) / 1000)
             data = 'VALUE %s 0 %d\r\n%s\r\n' % (key, len(value), value)
-            self.transport.write(line.encode())
+            self.transport.write(data.encode())
 
         self.transport.write(b'END\r\n')
 
-    def handle_incr(self, key, value=0, noreply=None, *args):
+    def handle_incr(self, key, noreply=None, *args):
         ret = b'0' if self.rlist.hit(key) else b'1'
 
         if noreply == 'noreply':
