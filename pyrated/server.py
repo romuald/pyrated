@@ -140,8 +140,8 @@ def main():
 
     # Each client connection will create a new protocol instance
     protocol_class = MemcachedServerProtocol.create_class()
-    protocol_class.rlist = RatelimitList(args.definition.count,
-                                         args.definition.delay)
+    protocol_class.rlist = Ratelimit(args.definition.count,
+                                     args.definition.delay)
 
     loop = asyncio.get_event_loop()
     coro = loop.create_server(protocol_class, args.source, args.port)
