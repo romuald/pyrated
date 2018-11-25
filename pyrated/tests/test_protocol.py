@@ -125,7 +125,7 @@ class TestProtocol:
         res = await read(reader)
         assert res == b'NOT_FOUND\r\n'
 
-    async def delete_noreply(self):
+    async def test_delete_noreply(self, client):
         reader, writer = client
 
         writer.write(b'incr foo\r\n')
@@ -139,3 +139,29 @@ class TestProtocol:
         writer.write(b'incr foo\r\n')
         res = await read(reader)
         assert res == b'0\r\n'
+
+    async def test_set(self, client):
+        reader, writer = client
+
+        writer.write(b'set foo 0 0 3\r\n')
+        res = await read(reader)
+        assert res == b'ERROR unknown command\r\n'
+
+    async def test_big_line(self, client):
+        reader, writer = client
+
+        data = 'incr ' + ('b' * 270000) + '\r\n'
+        writer.write(data.encode())
+
+        with pytest.raises(ConnectionResetError):
+            await read(reader)
+
+
+def test_create_protocol_class():
+    rl1 = Ratelimit(1, 2)
+    rl2 = Ratelimit(1, 3)
+
+    cls1 = MemcachedServerProtocol.create_class(rl1)
+    cls2 = MemcachedServerProtocol.create_class(rl2)
+
+    assert cls1.rlist is not cls2.rlist
