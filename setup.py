@@ -37,6 +37,6 @@ setup(
         'console_scripts': ['pyrated=pyrated.server:main'],
     },
     test_suite='pyrated.tests',
-    tests_require=['pytest', 'pytest-asyncio'],
+    tests_require=['pytest'],
     cmdclass={'test': PyTest},
 )
