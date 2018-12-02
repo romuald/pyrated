@@ -1,5 +1,7 @@
 # pyrated - Python Ratelimit Daemon
 
+[![Build Status](https://travis-ci.com/romuald/pyrated.svg?branch=master)](https://travis-ci.com/romuald/pyrated)
+
 pyrated is a server (and a library) that can be used to constraint queries made to a specific rate
 
 
