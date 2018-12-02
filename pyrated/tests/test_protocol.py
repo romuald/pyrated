@@ -6,21 +6,21 @@ from pyrated.server import MemcachedServerProtocol
 
 
 @pytest.fixture()
-async def fake_server(event_loop, unused_tcp_port):
+def fake_server(event_loop, unused_tcp_port):
     protocol = MemcachedServerProtocol.create_class(Ratelimit(1, 2))
     create_server = event_loop.create_server(protocol, '127.0.0.1',
                                              unused_tcp_port)
-    server = await create_server
+    server = event_loop.run_until_complete(create_server)
     yield server
     server.close()
-    await server.wait_closed()
+    event_loop.run_until_complete(server.wait_closed())
 
 
 @pytest.fixture()
-async def client(event_loop, fake_server, unused_tcp_port):
-    print('fake', fake_server)
-    yield await asyncio.open_connection('127.0.0.1', unused_tcp_port,
-                                        loop=event_loop)
+def client(event_loop, fake_server, unused_tcp_port):
+    yield event_loop.run_until_complete(
+        asyncio.open_connection('127.0.0.1', unused_tcp_port,
+                                loop=event_loop))
 
 
 async def read(reader):
