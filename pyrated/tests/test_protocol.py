@@ -114,7 +114,7 @@ class TestProtocol:
         data = 'incr ' + ('b' * 10000)
         self.write(data.encode())
 
-        self.mprotocol.transport.close.assert_called()
+        self.mprotocol.transport.close.assert_called_with()
 
 
 def test_create_protocol_class():
