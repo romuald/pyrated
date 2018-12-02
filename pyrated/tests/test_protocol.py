@@ -29,7 +29,7 @@ async def read(reader):
     while True:
         coro = reader.read(1)
         try:
-            ret += await asyncio.wait_for(coro, timeout=0.001)
+            ret += await asyncio.wait_for(coro, timeout=0.01)
         except asyncio.TimeoutError:
             break
 
