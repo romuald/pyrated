@@ -448,25 +448,26 @@ dynamic_list(PyObject *self, PyObject *args) {
     //PyObject *ret = PyTuple_New(2);
     PyObject *ret = Py_BuildValue("Os", self, value);
 
-
-    char unused = ' ';
-    int keystart;
-    if ( sscanf(value, "%10d/%10d%[:]%n", &count, &delay, &unused, &keystart) < 3 ) {
+    int colon;
+    if ( sscanf(value, "%10d/%10d%n", &count, &delay, &colon) < 2 ) {
         return ret;
     }
 
     if ( count <= 0 || delay <= 0 ) {
-        return  ret;
+        return ret;
+    }
+
+    if ( value[colon] != ':' ) {
+        return ret;
     }
 
     // Actual key name
-    const char *keyname = value + keystart;
+    const char *keyname = value + colon + 1;
     PyTuple_SetItem(ret, 1, PyUnicode_FromString(keyname));
 
     char spec_key[32];
-    strncpy(spec_key, value, keystart);
-    spec_key[keystart-1] = '\0';
-
+    strncpy(spec_key, value, colon);
+    spec_key[colon] = '\0';
 
     // Get _dlists
     PyObject *attrname = PyUnicode_FromString("_dlists");
