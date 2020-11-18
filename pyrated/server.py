@@ -39,7 +39,7 @@ class RatelimitDef:
         return '%r/%r' % (self.count, self.period)
 
 
-def parse_args(args=sys.argv):
+def parse_args(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description='python ratelimit daemon')
     parser.add_argument('definition', type=RatelimitDef,
                         help='The ratelimit definition ([#hits]/[period])')

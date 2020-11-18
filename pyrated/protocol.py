@@ -5,7 +5,7 @@ class MemcachedServerProtocol(asyncio.Protocol):
     _class_counter = 0
 
     @classmethod
-    def create_class(cls, rlist):
+    def create_class(cls, rlist, dynamic=False):
         """
         Allow use of distinct subclasses each sharing their own state
 
@@ -14,6 +14,7 @@ class MemcachedServerProtocol(asyncio.Protocol):
 
         ret = type(cls.__name__ + str(cls._class_counter), (cls, ), {})
         ret.rlist = rlist
+        ret.dynamic = dynamic
 
         return ret
 
@@ -46,7 +47,12 @@ class MemcachedServerProtocol(asyncio.Protocol):
         self.transport.write(b'END\r\n')
 
     def handle_incr(self, key, noreply=None, *args):
-        ret = b'0' if self.rlist.hit(key) else b'1'
+        if not self.dynamic:
+            rlist = self.rlist
+        else:
+            rlist, key = self.rlist.dynamic_list(key)
+
+        ret = b'0' if rlist.hit(key) else b'1'
 
         if noreply == 'noreply':
             return

@@ -37,6 +37,7 @@ class Ratelimit(RatelimitBase):
         self._count = count
         self._period = int(period * 1000)
         self._cleanup_task = None
+        self._dlists = {}
 
     @property
     def count(self):
@@ -131,8 +132,20 @@ class Ratelimit(RatelimitBase):
             self._cleanup_task.cancel()
             self._cleanup_task = None
 
-    @asyncio.coroutine
-    def cleanup_run(self, interval):
+    def cleanup(self, recurse=True):
+        # C cleanup code
+        super().cleanup()
+
+        if not recurse:
+            return
+
+        # Cleanup sublists
+        for lst in self._dlists.values():
+            lst.cleanup(recurse=False)
+        self._dlists = {key: lst for key, lst in self._dlists.items()
+                        if len(lst)}
+
+    async def cleanup_run(self, interval):
         """
         Running task of the install_cleanup method, do a cleanup of the list
         every *interval* seconds
@@ -140,11 +153,13 @@ class Ratelimit(RatelimitBase):
         """
         # Reference workaround: when a Ratelimit object has been deleted,
         # this coroutine would still hold a reference to it.
+
         self = weakref.proxy(self)
 
         while True:
             try:
-                yield from asyncio.sleep(interval)
+                await asyncio.sleep(interval)
                 self.cleanup()
+
             except (ReferenceError, asyncio.CancelledError):
                 break

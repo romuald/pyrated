@@ -437,6 +437,66 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
     return PyLong_FromLong((long)count);
 }
 
+static PyObject *
+dynamic_list(PyObject *self, PyObject *args) {
+    char *value;
+    int32_t count, delay;
+
+    if (! PyArg_ParseTuple(args, "s", &value) )
+        return NULL;
+
+    //PyObject *ret = PyTuple_New(2);
+    PyObject *ret = Py_BuildValue("Os", self, value);
+
+
+    char unused = ' ';
+    int keystart;
+    if ( sscanf(value, "%10d/%10d%[:]%n", &count, &delay, &unused, &keystart) < 3 ) {
+        return ret;
+    }
+
+    if ( count <= 0 || delay <= 0 ) {
+        return  ret;
+    }
+
+    // Actual key name
+    const char *keyname = value + keystart;
+    PyTuple_SetItem(ret, 1, PyUnicode_FromString(keyname));
+
+    char spec_key[32];
+    strncpy(spec_key, value, keystart);
+    spec_key[keystart-1] = '\0';
+
+
+    // Get _dlists
+    PyObject *attrname = PyUnicode_FromString("_dlists");
+    PyObject *dlists = PyObject_GenericGetAttr(self, attrname);
+    if ( dlists == NULL ) {
+        return NULL;
+    }
+    Py_DECREF(attrname);
+
+    PyObject* sublist = PyDict_GetItemString(dlists, spec_key);
+
+    if ( sublist == NULL ) {
+        PyObject* cls = PyObject_GetAttrString(self, "__class__");
+
+        PyObject *argList = Py_BuildValue("iii", count, delay, ((RatelimitBase*) self)->block_size);
+
+        sublist = PyObject_CallObject(cls, argList);
+        Py_DECREF(argList);
+        if ( sublist == NULL ) {
+            return NULL;
+        }
+
+        PyDict_SetItemString(dlists, spec_key, sublist);
+    }
+    Py_DECREF(dlists);
+    PyTuple_SetItem(ret, 0, sublist);
+
+    return ret;
+}
+
 
 static void
 RatelimitBase_dealloc(RatelimitBase* self)
@@ -451,6 +511,8 @@ static PyMethodDef pyrated_RatelimitBase_Methods[] = {
      "within the current limits specifications for that key"},
     {"next_hit",  (PyCFunction)RatelimitBase_next_hit, METH_VARARGS,
      "For how many milliseconds hit() will reply with False"},
+    {"dynlist", (PyCFunction)dynamic_list, METH_VARARGS,
+     "Returns a dynamic sublist (doc TODO)"},
     {"cleanup", (PyCFunction)RatelimitBase_cleanup, METH_NOARGS,
      "Remove expired entries from the list"},
 
