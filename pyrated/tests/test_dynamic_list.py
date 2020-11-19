@@ -2,7 +2,6 @@ import weakref
 import pytest
 
 from pyrated.ratelimit import Ratelimit
-from .utils import FakeTime
 
 
 def test_no_spec():
@@ -62,34 +61,33 @@ def test_bad_formats(fmt):
     assert key == fmt
 
 
-def test_cleanup():
+def test_cleanup(faketime):
     import gc
     rl = Ratelimit(2, 10)
     subrl, _ = rl.dynlist('3/2:unused')
 
-    with FakeTime() as fake:
 
-        rl.hit('a')
-        subrl.hit('a')
+    rl.hit('a')
+    subrl.hit('a')
 
-        fake += 1000
-        rl.hit('b')
-        subrl.hit('b')
+    faketime += 1000
+    rl.hit('b')
+    subrl.hit('b')
 
-        rl.cleanup()
+    rl.cleanup()
 
-        assert len(rl) == 2
-        assert len(subrl) == 2
+    assert len(rl) == 2
+    assert len(subrl) == 2
 
-        fake += 1000
+    faketime += 1000
 
-        rl.cleanup()
-        assert len(rl) == 2
-        assert len(subrl) == 1
+    rl.cleanup()
+    assert len(rl) == 2
+    assert len(subrl) == 1
 
-        fake += 1100
+    faketime += 1100
 
-        rl.cleanup()
+    rl.cleanup()
 
     assert len(subrl) == 0
     assert len(rl._dlists) == 0

@@ -1,252 +1,244 @@
 import weakref
 import pickle
 import asyncio
-import unittest
 
 from time import sleep
 
 import pytest
 
 from pyrated.ratelimit import Ratelimit
-from .utils import FakeTime
 
 
-class TestRatelimit(unittest.TestCase):
+def test_actual_time():
+    # A test without FakeTime
 
-    def test_actual_time(self):
-        # A test without FakeTime
+    # 10 hits in 100ms
+    rl = Ratelimit(10, 0.1)
 
-        # 10 hits in 100ms
-        rl = Ratelimit(10, 0.1)
+    # 10 hits are okay
+    for _ in range(10):
+        assert rl.hit('a-key') is True
+        assert rl.hit('another-key') is True
 
-        # 10 hits are okay
-        for _ in range(10):
-            assert rl.hit('a-key') is True
-            assert rl.hit('another-key') is True
+    # 11th hit fails
+    assert rl.hit('a-key') is False
+    assert rl.hit('another-key') is False
 
-        # 11th hit fails
-        assert rl.hit('a-key') is False
-        assert rl.hit('another-key') is False
+    # Waiting the whole period we can go on again
+    sleep(0.1)
 
-        # Waiting the whole period we can go on again
-        sleep(0.1)
+    for _ in range(10):
+        assert rl.hit('a-key') is True
+        assert rl.hit('another-key') is True
 
-        for _ in range(10):
-            assert rl.hit('a-key') is True
-            assert rl.hit('another-key') is True
+def test_static_time(faketime):
+    # 15 hits in 10 seconds
+    rl = Ratelimit(15, 10)
 
-    def test_static_time(self):
-        # 15 hits in 10 seconds
-        rl = Ratelimit(15, 10)
+    # 10 hits are okay
+    for _ in range(15):
+        assert rl.hit('a-key') is True
+        assert rl.hit('another-key') is True
 
-        with FakeTime() as fake:
-            # 10 hits are okay
-            for _ in range(15):
-                assert rl.hit('a-key') is True
-                assert rl.hit('another-key') is True
+    # 11th hit fails
+    assert rl.hit('a-key') is False
+    assert rl.hit('another-key') is False
 
-            # 11th hit fails
-            assert rl.hit('a-key') is False
-            assert rl.hit('another-key') is False
+    faketime += 10000
 
-            fake.value += 10000
+    for _ in range(10):
+        assert rl.hit('a-key') is True
+        assert rl.hit('another-key') is True
 
-            for _ in range(10):
-                assert rl.hit('a-key') is True
-                assert rl.hit('another-key') is True
+def test_sliding_time(faketime):
+    # 2 hits per second
+    rl = Ratelimit(2, 1)
 
-    def test_sliding_time(self):
-        # 2 hits per second
-        rl = Ratelimit(2, 1)
 
-        with FakeTime() as fake:
+    assert rl.hit('key') is True
 
-            assert rl.hit('key') is True
+    faketime += 100
+    assert rl.hit('key') is True
 
-            fake += 100
-            assert rl.hit('key') is True
+    for _ in range(9):
+        assert rl.hit('key') is False
+        faketime += 100
 
-            for _ in range(9):
-                assert rl.hit('key') is False
-                fake += 100
+    assert rl.hit('key') is True
+    assert rl.hit('key') is False
 
-            assert rl.hit('key') is True
-            assert rl.hit('key') is False
 
-    def test_cleanup(self):
-        # 5 hits accross 10 seconds
-        rl = Ratelimit(5, 10)
+def test_cleanup(faketime):
+    # 5 hits accross 10 seconds
+    rl = Ratelimit(5, 10)
 
-        with FakeTime() as fake:
-            rl.hit('first')
-            rl.hit('second')
+    rl.hit('first')
+    rl.hit('second')
 
-            fake += 1000
+    faketime += 1000
 
-            rl.hit('second')
-            rl.hit('third')
+    rl.hit('second')
+    rl.hit('third')
 
-            fake += 8999
-            rl.cleanup()
-            assert len(rl) == 3
+    faketime += 8999
+    rl.cleanup()
+    assert len(rl) == 3
 
-            fake += 1
-            rl.cleanup()
-            assert len(rl) == 2
-            assert 'first' not in rl
+    faketime += 1
+    rl.cleanup()
+    assert len(rl) == 2
+    assert 'first' not in rl
 
-            fake += 1000
-            rl.hit('third')
-            rl.cleanup()
-            assert len(rl) == 1
-            assert 'second' not in rl
+    faketime += 1000
+    rl.hit('third')
+    rl.cleanup()
+    assert len(rl) == 1
+    assert 'second' not in rl
 
-            fake += 10000
-            rl.cleanup()
-            assert len(rl) == 0
+    faketime += 10000
+    rl.cleanup()
+    assert len(rl) == 0
 
-    def test_cleanup_rollover(self):
-        rl = Ratelimit(100, 10)
-        last = None  # last succesful hit (which determine expiration time)
 
-        with FakeTime() as fake:
-            for _ in range(500):
-                fake += 10
-                if rl.hit('foo'):
-                    last = fake.value
-                rl.cleanup()
-                assert len(rl) == 1
+def test_cleanup_rollover(faketime):
+    rl = Ratelimit(100, 10)
+    last = None  # last succesful hit (which determine expiration time)
 
-            fake.value = last + 9999
-            rl.cleanup()
-            assert len(rl) == 1
+    for _ in range(500):
+        faketime += 10
+        if rl.hit('foo'):
+            last = faketime.value
+        rl.cleanup()
+        assert len(rl) == 1
 
-            fake.value += 1
-            rl.cleanup()
-            assert len(rl) == 0
+    faketime.value = last + 9999
+    rl.cleanup()
+    assert len(rl) == 1
 
-    def test_time_rebase(self):
-        # Test that the internal "rebase" of time base works
-        # (avoid uint32 overflow)
-        # The maximum milliseconds storable in an uint32 is about 49 days
-        HALFDAY = int((86400 * 1000) / 2)
+    faketime += 1
+    rl.cleanup()
+    assert len(rl) == 0
 
-        # 2 hits per day, for 70 days
-        rl = Ratelimit(2, HALFDAY * 2 / 1000)
 
-        with FakeTime() as fake:
-            for i in range(70):
-                # first hit of the day works
-                assert rl.hit('foo') is True
-                fake += HALFDAY
+def test_time_rebase(faketime):
+    # Test that the internal "rebase" of time base works
+    # (avoid uint32 overflow)
+    # The maximum milliseconds storable in an uint32 is about 49 days
+    HALFDAY = int((86400 * 1000) / 2)
 
-                # second hit 12 hours after works
-                assert rl.hit('foo') is True
-                fake += 1000
+    # 2 hits per day, for 70 days
+    rl = Ratelimit(2, HALFDAY * 2 / 1000)
 
-                # Third hit 1 second after doesn't
-                assert rl.hit('foo') is False
-                fake += HALFDAY - 1000
+    for i in range(70):
+        # first hit of the day works
+        assert rl.hit('foo') is True
+        faketime += HALFDAY
 
-    def test_next_hit(self):
-        # 10 hits over 10 seconds
-        rl = Ratelimit(10, 10)
+        # second hit 12 hours after works
+        assert rl.hit('foo') is True
+        faketime += 1000
 
-        with FakeTime() as fake:
-            # Single hit every 100ms for one second
-            for i in range(10):
-                assert rl.next_hit('woot') == 0
-                assert rl.hit('woot') is True
+        # Third hit 1 second after doesn't
+        assert rl.hit('foo') is False
+        faketime += HALFDAY - 1000
 
-                fake += 100
+def test_next_hit(faketime):
+    # 10 hits over 10 seconds
+    rl = Ratelimit(10, 10)
 
-            # Can't hit at 1000ms
-            assert rl.hit('woot') is False
+    # Single hit every 100ms for one second
+    for i in range(10):
+        assert rl.next_hit('woot') == 0
+        assert rl.hit('woot') is True
 
-            # We have to wait 9 seconds
-            assert rl.next_hit('woot') == 9000
+        faketime += 100
 
-            # 500ms after that we have to wait 8.5 seoncds
-            fake += 500
-            assert rl.next_hit('woot') == 8500
+    # Can't hit at 1000ms
+    assert rl.hit('woot') is False
 
-            # 8.5 seconds after that we don't have to wait
-            fake += 8500
-            assert rl.next_hit('woot') == 0
+    # We have to wait 9 seconds
+    assert rl.next_hit('woot') == 9000
 
-            # Hitting 50ms after
-            fake += 50
-            assert rl.hit('woot') is True
+    # 500ms after that we have to wait 8.5 seoncds
+    faketime += 500
+    assert rl.next_hit('woot') == 8500
 
-            # We then have to wait 50ms again for the next hit
-            assert rl.next_hit('woot') == 50
-            fake += 50
+    # 8.5 seconds after that we don't have to wait
+    faketime += 8500
+    assert rl.next_hit('woot') == 0
 
-            assert rl.next_hit('woot') == 0
-            assert rl.hit('woot') is True
+    # Hitting 50ms after
+    faketime += 50
+    assert rl.hit('woot') is True
 
-    def test_serialization(self):
-        base = Ratelimit(10, 10)
+    # We then have to wait 50ms again for the next hit
+    assert rl.next_hit('woot') == 50
+    faketime += 50
 
-        with FakeTime() as fake:
-            for i in range(9):
-                assert base.hit('foo') is True
-                fake += 10
+    assert rl.next_hit('woot') == 0
+    assert rl.hit('woot') is True
 
-            copy = pickle.loads(pickle.dumps(base))
+def test_serialization(faketime):
+    base = Ratelimit(10, 10)
 
-            # The 2 objects are distinct
-            assert base.hit('foo') is True
-            assert base.hit('foo') is False
+    for i in range(9):
+        assert base.hit('foo') is True
+        faketime += 10
 
-            assert copy.hit('foo') is True
-            assert copy.hit('foo') is False
+    copy = pickle.loads(pickle.dumps(base))
 
-            base.hit('bar')
-            assert 'bar' in base
-            assert 'bar' not in copy
+    # The 2 objects are distinct
+    assert base.hit('foo') is True
+    assert base.hit('foo') is False
 
-    def test_block_size(self):
-        base = Ratelimit(10, 10)
+    assert copy.hit('foo') is True
+    assert copy.hit('foo') is False
 
-        base.block_size = 5
-        assert base.block_size == 5
+    base.hit('bar')
+    assert 'bar' in base
+    assert 'bar' not in copy
 
-        # Currently there is no upper bound, restriction
-        # since the implementation won't over-allocate
+def test_block_size():
+    base = Ratelimit(10, 10)
 
-        with pytest.raises(TypeError):
-            base.block_size = 'foo'
+    base.block_size = 5
+    assert base.block_size == 5
 
-        with pytest.raises(TypeError):
-            base.block_size = 0.5
+    # Currently there is no upper bound, restriction
+    # since the implementation won't over-allocate
 
-        with pytest.raises(ValueError):
-            base.block_size = -29
+    with pytest.raises(TypeError):
+        base.block_size = 'foo'
 
-    def test_cleanup_reference(self):
-        # deleting the last reference to an object will stop the cleanup task
+    with pytest.raises(TypeError):
+        base.block_size = 0.5
 
-        def task_count(loop):
-            # Task.all_tasks deprecated, but
-            # asyncio.all_tasks introduced in python 3.7
-            try:
-                return len(asyncio.all_tasks(loop))
-            except AttributeError:
-                return len(asyncio.Task.all_tasks(loop))
+    with pytest.raises(ValueError):
+        base.block_size = -29
 
-        loop = asyncio.new_event_loop()
+def test_cleanup_reference():
+    # deleting the last reference to an object will stop the cleanup task
 
-        rl = Ratelimit(10, 10)
-        ref = weakref.ref(rl)
+    def task_count(loop):
+        # Task.all_tasks deprecated, but
+        # asyncio.all_tasks introduced in python 3.7
+        try:
+            return len(asyncio.all_tasks(loop))
+        except AttributeError:
+            return len(asyncio.Task.all_tasks(loop))
 
-        rl.install_cleanup(loop, 0.005)
+    loop = asyncio.new_event_loop()
 
-        loop.run_until_complete(asyncio.sleep(0.01))
-        assert task_count(loop) == 1
+    rl = Ratelimit(10, 10)
+    ref = weakref.ref(rl)
 
-        del rl
-        loop.run_until_complete(asyncio.sleep(0.02))
+    rl.install_cleanup(loop, 0.005)
 
-        assert ref() is None
-        assert task_count(loop) == 0
+    loop.run_until_complete(asyncio.sleep(0.01))
+    assert task_count(loop) == 1
+
+    del rl
+    loop.run_until_complete(asyncio.sleep(0.02))
+
+    assert ref() is None
+    assert task_count(loop) == 0

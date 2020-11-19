@@ -1,4 +1,20 @@
+import pytest
+
 from pyrated._ratelimit import _set_fake_now, _get_fake_now
+
+@pytest.fixture
+def faketime(request):
+    marker = request.node.get_closest_marker("fixt_data")
+    if marker is None:
+        # Handle missing marker in some way...
+        value = 1000
+    else:
+        value = int(marker.args[0])
+
+    fake = FakeTime(value)
+    with fake:
+        yield fake
+
 
 class FakeTime:
     """
@@ -8,6 +24,7 @@ class FakeTime:
 
     with FakeTime(42) as fake:
         fake.value += 10
+        fake += 20
 
     """
     def __init__(self, value=1000):
