@@ -1,4 +1,4 @@
-dist: xenial
+dist: bionic
 language: python
 python:
   - "3.6"
@@ -6,5 +6,6 @@ python:
   - "3.8"
   - "3.9"
 
-script:
-  - python setup.py test
+install: pip install -e .
+
+script: py.test
