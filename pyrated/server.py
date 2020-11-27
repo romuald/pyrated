@@ -62,7 +62,7 @@ def main():
 
     # Each client connection will create a new protocol instance,
     # but we need a shared state for all connections
-    rlist = Ratelimit(args.definition.count, args.definition.delay)
+    rlist = Ratelimit(args.definition.count, args.definition.period)
     protocol_class = MemcachedServerProtocol.create_class(rlist)
 
     loop = asyncio.get_event_loop()
