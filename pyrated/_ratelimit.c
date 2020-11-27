@@ -478,7 +478,7 @@ dynamic_list(PyObject *self, PyObject *args) {
     Py_DECREF(attrname);
 
     PyObject* sublist = PyDict_GetItemString(dlists, spec_key);
-
+    Py_XINCREF(sublist);
     if ( sublist == NULL ) {
         PyObject* cls = PyObject_GetAttrString(self, "__class__");
 
@@ -493,6 +493,7 @@ dynamic_list(PyObject *self, PyObject *args) {
         PyDict_SetItemString(dlists, spec_key, sublist);
     }
     Py_DECREF(dlists);
+
     PyTuple_SetItem(ret, 0, sublist);
 
     return ret;
