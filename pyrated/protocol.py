@@ -50,7 +50,7 @@ class MemcachedServerProtocol(asyncio.Protocol):
         if not self.dynamic:
             rlist = self.rlist
         else:
-            rlist, key = self.rlist.dynamic_list(key)
+            rlist, key = self.rlist.dynlist(key)
 
         ret = b'0' if rlist.hit(key) else b'1'
 

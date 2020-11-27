@@ -116,6 +116,21 @@ class TestProtocol:
 
         self.mprotocol.transport.close.assert_called_with()
 
+    def test_no_dynamic(self):
+        self.write(b'incr 1/8:no-dynamic\r\n')
+
+        assert self.read() == b'0\r\n'
+        self.write(b'incr 1/8:no-dynamic\r\n')
+        assert self.read() == b'1\r\n'
+
+    def test_no_dynamic(self):
+        with unittest.mock.patch.object(self.mprotocol, 'dynamic', True):
+            self.mprotocol.dynamic = True
+            self.write(b'incr 1/8:no-dynamic\r\n')
+
+            assert self.read() == b'0\r\n'
+            self.write(b'incr 2/8:no-dynamic\r\n')
+            assert self.read() == b'0\r\n'
 
 def test_create_protocol_class():
     rl1 = Ratelimit(1, 2)
