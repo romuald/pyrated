@@ -119,6 +119,36 @@ def test_cleanup_rollover(faketime):
     rl.cleanup()
     assert len(rl) == 0
 
+def test_cleanup_in_loop(faketime):
+    ev = asyncio.new_event_loop()
+
+    rl = Ratelimit(1, 1)
+    rl.hit('foo')
+    faketime += 2000
+
+    assert len(rl) == 1
+
+    rl.install_cleanup(ev, 0.0001)
+
+    task1 = rl._cleanup_task
+
+    assert task1 is not None
+
+    ev.run_until_complete(asyncio.sleep(0.0002))
+    assert len(rl) == 0
+
+    task2 = rl.install_cleanup(ev, 0.0001)
+
+    assert task2 is not task1
+
+    # avoid warning and trigger the old task cancelation
+    ev.run_until_complete(asyncio.sleep(0.0002))
+    # the old task is not running anymore
+    assert len(asyncio.all_tasks(ev)) == 1
+
+    rl.remove_cleanup()
+    assert rl._cleanup_task is None
+
 
 def test_time_rebase(faketime):
     # Test that the internal "rebase" of time base works
@@ -215,6 +245,16 @@ def test_block_size():
 
     with pytest.raises(ValueError):
         base.block_size = -29
+
+def test_bad_init():
+    with pytest.raises(ValueError):
+        Ratelimit(0, 1)
+
+    with pytest.raises(ValueError):
+        Ratelimit(1, 0)
+
+    with pytest.raises(ValueError):
+        Ratelimit(3, 86400 * 45 + 1)
 
 def test_cleanup_reference():
     # deleting the last reference to an object will stop the cleanup task
