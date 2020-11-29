@@ -1,6 +1,8 @@
+import sys
 import weakref
 import pickle
 import asyncio
+import warnings
 
 from time import sleep
 
@@ -143,8 +145,11 @@ def test_cleanup_in_loop(faketime):
 
     # avoid warning and trigger the old task cancelation
     ev.run_until_complete(asyncio.sleep(0.0002))
-    # the old task is not running anymore
-    assert len(asyncio.all_tasks(ev)) == 1
+    # the old task is not running anymore (3.7 or greater)
+    if sys.version_info < (3, 7):
+        warnings.warn('assertion skipped due to python version')
+    else:
+        assert len(asyncio.all_tasks(ev)) == 1
 
     rl.remove_cleanup()
     assert rl._cleanup_task is None
