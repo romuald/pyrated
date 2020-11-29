@@ -96,6 +96,7 @@ class Ratelimit(RatelimitBase):
             '_period': self._period,
             '_block_size': self._block_size,
             '_entries': self._entries,
+            '_dlists': self._dlists,
         }
 
         return ret
@@ -105,6 +106,7 @@ class Ratelimit(RatelimitBase):
         self._period = state['_period']
         self._block_size = state['_block_size']
         self._entries = state['_entries']
+        self._dlists = state.get('_dlists', {})
         self._cleanup_task = None
 
     def install_cleanup(self, loop, interval=30.0):

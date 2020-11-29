@@ -184,9 +184,9 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t period, uint32_t bsize) {
     now -= self->base;
 
     uint64_t last = self->hits[self->current];
-    //printf("Check, base=%llu, current=%u now=%llu, last=%llu ",
+    //printf("Check, base=%llu, current=%u now=%llu, last=%llu\n",
     //       self->base, self->current, now, last);
-    //printf("Hit, now=%ld, last=%ld\n", now, last);
+    //printf("Hit, now=%llu, last=%llu\n", now, last);
 
     if ( last != 0 && (now - last) < period ) {
         return false;
@@ -246,7 +246,7 @@ Rentry_get_state(Rentry* self) {
     PyTuple_SetItem(state, STATE_CSIZE,
         PyLong_FromUnsignedLong(self->csize));
 
-    tmp = PyBytes_FromStringAndSize((char*)self->hits, self->csize);
+    tmp = PyBytes_FromStringAndSize((char*)self->hits, self->csize * sizeof(self->hits[0]));
     PyTuple_SetItem(state, STATE_HITS, tmp);
 
     return state;
@@ -265,10 +265,9 @@ Rentry_set_state(Rentry* self, PyObject *args) {
 
     self->hits = calloc(self->csize, sizeof(self->hits[0]));
     char *hits = PyBytes_AsString(PyTuple_GetItem(state, STATE_HITS));
-    memcpy(self->hits, hits, self->csize);
+    memcpy(self->hits, hits, self->csize * sizeof(self->hits[0]));
 
     Py_DECREF(state);
-
     Py_INCREF(Py_None);
     return Py_None;
 }

@@ -1,4 +1,5 @@
 import weakref
+import pickle
 import pytest
 
 from pyrated.ratelimit import Ratelimit
@@ -97,3 +98,48 @@ def test_cleanup(faketime):
 
     # no leak
     assert ref() is None
+
+def test_serialization(faketime):
+    base = Ratelimit(1, 1)
+    sub1, _ = base.dynlist('2/1:foo')
+    sub2, _ = base.dynlist('3/1:foo')
+
+    assert base.hit('foo') is True
+    assert sub1.hit('foo') is True
+    assert sub2.hit('foo') is True
+
+    faketime.value = 1500
+
+    assert sub1.hit('foo') is True
+    assert sub2.hit('foo') is True
+
+    faketime.value = 1700
+
+    assert base.hit('foo') is False
+    assert sub1.hit('foo') is False
+    assert sub2.hit('foo') is True
+
+    faketime.value = 1800
+    assert sub2.hit('foo') is False
+
+    # The sub-lists do not share their state with the parent sub-lists
+    copy = pickle.loads(pickle.dumps(base))
+    sub1c, _ = copy.dynlist('2/1:foo')
+    sub2c, _ = copy.dynlist('3/1:foo')
+
+    faketime.value = 2100
+
+    assert base.hit('foo') is True
+    assert copy.hit('foo') is True
+
+    assert sub1.hit('foo') is True
+    assert sub1c.hit('foo') is True
+    assert sub2.hit('foo') is True
+    assert sub2c.hit('foo') is True
+
+    faketime.value = 2200
+
+    assert sub1.hit('foo') is False
+    assert sub1c.hit('foo') is False
+    assert sub2c.hit('foo') is False
+
