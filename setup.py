@@ -28,6 +28,7 @@ class PyTest(TestCommand):
 setup(
     name='pyrated',
     version='1.0',
+    python_requires='>3.7',
 
     packages=['pyrated'],
 

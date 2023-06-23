@@ -131,8 +131,7 @@ class Ratelimit(RatelimitBase):
             self._cleanup_task.cancel()
             self._cleanup_task = None
 
-    @asyncio.coroutine
-    def cleanup_run(self, interval):
+    async def cleanup_run(self, interval):
         """
         Running task of the install_cleanup method, do a cleanup of the list
         every *interval* seconds
@@ -144,7 +143,7 @@ class Ratelimit(RatelimitBase):
 
         while True:
             try:
-                yield from asyncio.sleep(interval)
+                await asyncio.sleep(interval)
                 self.cleanup()
             except (ReferenceError, asyncio.CancelledError):
                 break
