@@ -39,7 +39,7 @@ class RatelimitDef:
         return '%r/%r' % (self.count, self.period)
 
 
-def parse_args(args=sys.argv):
+def parse_args(args):
     parser = argparse.ArgumentParser(description='python ratelimit daemon')
     parser.add_argument('definition', type=RatelimitDef,
                         help='The ratelimit definition ([#hits]/[period])')
@@ -58,11 +58,11 @@ def parse_args(args=sys.argv):
 
 
 def main():
-    args = parse_args()
+    args = parse_args(sys.argv[1:])
 
     # Each client connection will create a new protocol instance,
     # but we need a shared state for all connections
-    rlist = Ratelimit(args.definition.count, args.definition.delay)
+    rlist = Ratelimit(args.definition.count, args.definition.period)
     protocol_class = MemcachedServerProtocol.create_class(rlist)
 
     loop = asyncio.get_event_loop()
