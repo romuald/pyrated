@@ -76,7 +76,6 @@ def parse_args(args):
 
 
 async def amain(args):
-    args = parse_args(args)
     rlist = Ratelimit(args.definition.count, args.definition.period)
     protocol_class = MemcachedServerProtocol.create_class(rlist)
 
@@ -97,7 +96,8 @@ async def amain(args):
 
 
 def main():
-    run_in_loop(amain(sys.argv[1:]))
+    args = parse_args(sys.argv[1:])
+    run_in_loop(amain(args))
 
 
 if __name__ == '__main__':
