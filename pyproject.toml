@@ -1,0 +1,28 @@
+[project]
+name = "pyrated"
+version = "1.1"
+description = "The Python ratelimit daemon"
+authors = [
+    {name = "Romuald Brunet", email = "romuald@chivil.com"},
+]
+dependencies = ["setuptools>=74.1.0"]
+requires-python = ">=3.11, <3.14"  # 3.14 currently broken
+readme = "README.md"
+license = "MIT"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
+[tool.setuptools]
+ext-modules = [
+    {name = "pyrated._ratelimit", sources = ["pyrated/_ratelimit.c"]}
+]
+
+[project.scripts]
+pyrated = "pyrated.server:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
