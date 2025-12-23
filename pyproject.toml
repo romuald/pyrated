@@ -20,6 +20,9 @@ ext-modules = [
     {name = "pyrated._ratelimit", sources = ["src/pyrated/_ratelimit.c"]}
 ]
 
+[tool.setuptools.exclude-package-data]
+"*" = ["*.c"]  # exclude from wheel
+
 [project.scripts]
 pyrated = "pyrated.server:main"
 
