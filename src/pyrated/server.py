@@ -75,6 +75,24 @@ def parse_args(args):
     return args
 
 
+async def close_on_cancel(server):
+    """
+    Workaround breaking change in python 3.12+
+
+    Starting 3.12, serve_forever() will wait for clients to disconnect
+    We don't want that so tell server to close clients
+
+    """
+    try:
+        while True:
+            await asyncio.sleep(1000)
+    except asyncio.CancelledError:
+        # only works starting 3.13+ unfortunately
+        if hasattr(server, "close_clients"):
+            server.close()
+            server.close_clients()
+
+
 async def amain(args):
     rlist = Ratelimit(args.definition.count, args.definition.period)
     protocol_class = MemcachedServerProtocol.create_class(rlist)
@@ -86,13 +104,13 @@ async def amain(args):
     print('Serving on %s - port %d' % (', '.join(interfaces), args.port))
 
     protocol_class.rlist.install_cleanup(loop)
+    canary = close_on_cancel(server)
     try:
-        await server.serve_forever()
+        await asyncio.gather(server.serve_forever(), canary)
     except asyncio.CancelledError:
+        pass
+    finally:
         protocol_class.rlist.remove_cleanup()
-        server.close()
-        # we are rude and don't wait for clients to close their connections
-        # await server.wait_closed()
 
 
 def main():
