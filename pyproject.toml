@@ -17,7 +17,7 @@ dev = [
 
 [tool.setuptools]
 ext-modules = [
-    {name = "pyrated._ratelimit", sources = ["pyrated/_ratelimit.c"]}
+    {name = "pyrated._ratelimit", sources = ["src/pyrated/_ratelimit.c"]}
 ]
 
 [project.scripts]
