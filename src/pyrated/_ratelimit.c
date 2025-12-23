@@ -2,6 +2,7 @@
 #include "structmember.h"
 
 #include <time.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 #ifdef __APPLE__
@@ -23,8 +24,7 @@ set_fake_now(PyObject *cls, PyObject *args) {
     if (! PyArg_ParseTuple(args, "K", &FAKE_NOW) )
         return NULL;
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static uint64_t naow(void) {
@@ -61,8 +61,6 @@ static uint64_t naow(void) {
     return (uint64_t)timecheck.tv_sec * 1000 + (uint64_t)timecheck.tv_nsec / (1000 * 1000);
 #endif
 }
-
-
 
 typedef struct {
     PyObject_HEAD
@@ -109,7 +107,7 @@ Rentry_init(Rentry *self, PyObject *args, PyObject *kwds)
 static void
 Rentry_dealloc(Rentry* self)
 {
-    free(self->hits);
+    PyMem_Free(self->hits);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -164,8 +162,12 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t period, uint32_t bsize) {
         }
 
         //printf("realloc %d -> %d\n", self->csize, new_size);
-        // XXX check NULL (realloc fail)
-        self->hits = realloc(self->hits, new_size * sizeof(self->hits[0]));
+        uint32_t* success = PyMem_Resize(self->hits, typeof(self->hits[0]), new_size);
+        if (success == NULL) {
+            PyErr_NoMemory();
+            return false;
+        }
+        self->hits = success;
 
         /*
         // Unable to use memset properly
@@ -263,14 +265,13 @@ Rentry_set_state(Rentry* self, PyObject *args) {
     self->current = PyLong_AsLong(PyTuple_GetItem(state, STATE_CURRENT));
     self->csize = PyLong_AsLong(PyTuple_GetItem(state, STATE_CSIZE));
 
-    self->hits = calloc(self->csize, sizeof(self->hits[0]));
+    self->hits = PyMem_Calloc(self->csize, sizeof(self->hits[0]));
     char *hits = PyBytes_AsString(PyTuple_GetItem(state, STATE_HITS));
     memcpy(self->hits, hits, self->csize);
 
     Py_DECREF(state);
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyMethodDef pyrated_Rentry_Methods[] = {
@@ -355,12 +356,11 @@ RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
         Py_DECREF(value);
     }
 
-    result = Rentry_hit(value, self->count, self->period, self->block_size) ?
-        Py_True : Py_False;
-
-    Py_INCREF(result);
-
-    return result;
+    if (Rentry_hit(value, self->count, self->period, self->block_size)) {
+        Py_RETURN_TRUE;
+    } else {
+        Py_RETURN_FALSE;
+    }
 }
 
 /*
@@ -397,7 +397,12 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
     uint32_t size = BSIZE;
     uint32_t count = 0;
 
-    PyObject **to_delete = calloc(sizeof(PyObject*), size);
+    PyObject **to_delete = PyMem_Calloc(sizeof(PyObject*), size);
+
+    if (to_delete == NULL) {
+        PyErr_NoMemory();
+        return false;
+    }
 
     const uint64_t now = naow();
 
@@ -432,7 +437,7 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
     for ( i = 0; i < count; i++ ) {
         PyDict_DelItem(self->entries, to_delete[i]);
     }
-    free(to_delete);
+    PyMem_Free(to_delete);
 
     return PyLong_FromLong((long)count);
 }
@@ -470,7 +475,7 @@ static PyMemberDef pyrated_RatelimitBase_Members[] = {
 };
 
 
-static PyTypeObject pyrated_RatelimiBaseType = {
+static PyTypeObject pyrated_RatelimitBaseType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "pyrated._ratelimit.RatelimitBase",  /* tp_name */
     sizeof(RatelimitBase),               /* tp_basicsize */
@@ -536,7 +541,7 @@ PyInit__ratelimit(void)
     if (PyType_Ready(&pyrated_RentryType) < 0)
         return NULL;
 
-    if (PyType_Ready(&pyrated_RatelimiBaseType) < 0)
+    if (PyType_Ready(&pyrated_RatelimitBaseType) < 0)
         return NULL;
 
     module = PyModule_Create(&rentrymodule);
@@ -545,9 +550,9 @@ PyInit__ratelimit(void)
 
 
     Py_INCREF(&pyrated_RentryType);
-    Py_INCREF(&pyrated_RatelimiBaseType);
+    Py_INCREF(&pyrated_RatelimitBaseType);
     PyModule_AddObject(module, "Rentry",(PyObject *)&pyrated_RentryType);
-    PyModule_AddObject(module, "RatelimitBase", (PyObject *)&pyrated_RatelimiBaseType);
+    PyModule_AddObject(module, "RatelimitBase", (PyObject *)&pyrated_RatelimitBaseType);
 
     return module;
 }
