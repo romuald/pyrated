@@ -3,8 +3,7 @@ import sys
 import signal
 import asyncio
 import argparse
-import functools
-
+from typing import Coroutine
 
 from .ratelimit import Ratelimit
 from .protocol import MemcachedServerProtocol
@@ -39,6 +38,25 @@ class RatelimitDef:
         return '%r/%r' % (self.count, self.period)
 
 
+def run_in_loop(coro: Coroutine) -> asyncio.Task:  # pragma: no cover
+    """
+    Shorthand method to run a coroutine from "non-async" code
+
+    SIGTERM/SIGINT will cancel the task
+
+    Returns the task that was created from the coroutine
+
+    """
+
+    loop = asyncio.new_event_loop()
+    task = asyncio.ensure_future(coro, loop=loop)
+    loop.add_signal_handler(signal.SIGTERM, task.cancel)
+    loop.add_signal_handler(signal.SIGINT, task.cancel)
+    loop.run_until_complete(task)
+
+    return task
+
+
 def parse_args(args):
     parser = argparse.ArgumentParser(description='python ratelimit daemon')
     parser.add_argument('definition', type=RatelimitDef,
@@ -57,34 +75,29 @@ def parse_args(args):
     return args
 
 
-def main():
-    args = parse_args(sys.argv[1:])
-
-    # Each client connection will create a new protocol instance,
-    # but we need a shared state for all connections
+async def amain(args):
+    args = parse_args(args)
     rlist = Ratelimit(args.definition.count, args.definition.period)
     protocol_class = MemcachedServerProtocol.create_class(rlist)
 
-    loop = asyncio.get_event_loop()
-    coro = loop.create_server(protocol_class, args.source, args.port)
+    loop = asyncio.get_running_loop()
 
-    server = loop.run_until_complete(coro)
+    server = await loop.create_server(protocol_class, args.source, args.port)
     interfaces = (str(sock.getsockname()[0]) for sock in server.sockets)
     print('Serving on %s - port %d' % (', '.join(interfaces), args.port))
 
-    # Serve requests until Ctrl+C is pressed
     protocol_class.rlist.install_cleanup(loop)
-
-    loop.add_signal_handler(signal.SIGINT, loop.stop)
-    loop.add_signal_handler(signal.SIGTERM, loop.stop)
-
     try:
-        loop.run_forever()
-    finally:
+        await server.serve_forever()
+    except asyncio.CancelledError:
         protocol_class.rlist.remove_cleanup()
         server.close()
-        loop.run_until_complete(server.wait_closed())
-        loop.close()
+        # we are rude and don't wait for clients to close their connections
+        # await server.wait_closed()
+
+
+def main():
+    run_in_loop(amain(sys.argv[1:]))
 
 
 if __name__ == '__main__':
