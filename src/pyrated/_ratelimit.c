@@ -111,17 +111,12 @@ Rentry_dealloc(Rentry* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-
 /*
     If this entry lived for more than X days, rewrite the internal references
     relative to now so they won't overflow
 */
 static void
-Rentry_maybe_rebase(Rentry* self, uint64_t now) {
-    if ( now - self->base < REBASE_TIME ) {
-        return;
-    }
-
+Rentry_rebase(Rentry* self, uint64_t now) {
     uint32_t i;
     uint64_t min = 0;
 
@@ -139,6 +134,14 @@ Rentry_maybe_rebase(Rentry* self, uint64_t now) {
         }
     }
     self->base = new_base;
+}
+
+static inline void
+Rentry_maybe_rebase(Rentry* self, uint64_t now) {
+    if ( now - self->base < REBASE_TIME ) {
+        return;
+    }
+    Rentry_rebase(self, now);
 }
 
 /*
