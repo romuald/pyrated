@@ -453,6 +453,22 @@ RatelimitBase_dealloc(RatelimitBase* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+static int
+RatelimitBase_traverse(RatelimitBase *self, visitproc visit, void *arg)
+{
+    Py_VISIT(self->entries);
+
+    return 0;
+}
+
+static int
+RatelimitBase_clear(RatelimitBase *self)
+{
+    Py_CLEAR(self->entries);
+
+    return 0;
+}
+
 static PyMethodDef pyrated_RatelimitBase_Methods[] = {
     {"hit",  (PyCFunction)RatelimitBase_hit, METH_VARARGS,
      "\"hit\" the ratelimit for a specific key, will return True if rate is "
@@ -498,10 +514,10 @@ static PyTypeObject pyrated_RatelimitBaseType = {
     0,                            /* tp_getattro */
     0,                            /* tp_setattro */
     0,                            /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags */
-    "Base type for RatelimitList",     /* tp_doc */
-    0,                            /* tp_traverse */
-    0,                            /* tp_clear */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,    /* tp_flags */
+    "Base type for RatelimitList",               /* tp_doc */
+    RatelimitBase_traverse,       /* tp_traverse */
+    RatelimitBase_clear,          /* tp_clear */
     0,                            /* tp_richcompare */
     0,                            /* tp_weaklistoffset */
     0,                            /* tp_iter */
@@ -514,9 +530,9 @@ static PyTypeObject pyrated_RatelimitBaseType = {
     0,                            /* tp_descr_get */
     0,                            /* tp_descr_set */
     0,                            /* tp_dictoffset */
-    NULL,        /* tp_init */
+    NULL,                         /* tp_init */
     0,                            /* tp_alloc */
-    PyType_GenericNew,                   /* tp_new */
+    PyType_GenericNew,            /* tp_new */
 };
 
 static PyMethodDef ModuleMethods[] = {
