@@ -272,8 +272,6 @@ Rentry_set_state(Rentry* self, PyObject *args) {
     char *hits = PyBytes_AsString(PyTuple_GetItem(state, STATE_HITS));
     memcpy(self->hits, hits, self->csize);
 
-    Py_DECREF(state);
-
     Py_RETURN_NONE;
 }
 
