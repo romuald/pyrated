@@ -167,8 +167,7 @@ Rentry_hit(Rentry* self, uint32_t size, uint32_t period, uint32_t bsize) {
         //printf("realloc %d -> %d\n", self->csize, new_size);
         uint32_t* success = PyMem_Resize(self->hits, typeof(self->hits[0]), new_size);
         if (success == NULL) {
-            PyErr_NoMemory();
-            return false;
+            return PyErr_NoMemory();
         }
         self->hits = success;
 
@@ -269,6 +268,9 @@ Rentry_set_state(Rentry* self, PyObject *args) {
     self->csize = PyLong_AsLong(PyTuple_GetItem(state, STATE_CSIZE));
 
     self->hits = PyMem_Calloc(self->csize, sizeof(self->hits[0]));
+    if (self->hits == NULL) {
+        return PyErr_NoMemory();;
+    }
     char *hits = PyBytes_AsString(PyTuple_GetItem(state, STATE_HITS));
     memcpy(self->hits, hits, self->csize);
 
@@ -401,8 +403,7 @@ RatelimitBase_cleanup(RatelimitBase *self, PyObject *args) {
     PyObject **to_delete = PyMem_Calloc(sizeof(PyObject*), size);
 
     if (to_delete == NULL) {
-        PyErr_NoMemory();
-        return false;
+        return PyErr_NoMemory();
     }
 
     const uint64_t now = naow();
