@@ -21,8 +21,9 @@ get_fake_now(PyObject *cls, PyObject *args) {
 
 static PyObject *
 set_fake_now(PyObject *cls, PyObject *args) {
-    if (! PyArg_ParseTuple(args, "K", &FAKE_NOW) )
+    if (! PyArg_ParseTuple(args, "K", &FAKE_NOW) ) {
         return NULL;
+    }
 
     Py_RETURN_NONE;
 }
@@ -260,8 +261,9 @@ Rentry_get_state(Rentry* self) {
 static PyObject *
 Rentry_set_state(Rentry* self, PyObject *args) {
     PyObject *state;
-    if (! PyArg_ParseTuple(args, "O", &state) )
+    if (! PyArg_ParseTuple(args, "O", &state) ) {
         return NULL;
+    }
 
     self->base = PyLong_AsLong(PyTuple_GetItem(state, STATE_BASE));
     self->current = PyLong_AsLong(PyTuple_GetItem(state, STATE_CURRENT));
@@ -344,8 +346,9 @@ static PyObject *
 RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
     PyObject *key, *result;
 
-    if (! PyArg_ParseTuple(args, "O", &key) )
+    if (! PyArg_ParseTuple(args, "O", &key) ) {
         return NULL;
+    }
 
     Rentry *value = (Rentry*) PyDict_GetItem(self->entries, key);
 
@@ -373,8 +376,9 @@ static PyObject *
 RatelimitBase_next_hit(RatelimitBase *self, PyObject *args) {
     PyObject *key;
 
-    if (! PyArg_ParseTuple(args, "O", &key) )
+    if (! PyArg_ParseTuple(args, "O", &key) ) {
         return NULL;
+    }
 
     Rentry *value = (Rentry*) PyDict_GetItem(self->entries, key);
 
@@ -556,15 +560,18 @@ PyInit__ratelimit(void)
 {
     PyObject* module;
 
-    if (PyType_Ready(&pyrated_RentryType) < 0)
+    if (PyType_Ready(&pyrated_RentryType) < 0) {
         return NULL;
+    }
 
-    if (PyType_Ready(&pyrated_RatelimitBaseType) < 0)
+    if (PyType_Ready(&pyrated_RatelimitBaseType) < 0) {
         return NULL;
+    }
 
     module = PyModule_Create(&rentrymodule);
-    if (module == NULL)
+    if (module == NULL) {
         return NULL;
+    }
 
 
     Py_INCREF(&pyrated_RentryType);
