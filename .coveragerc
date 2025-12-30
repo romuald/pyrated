@@ -1,5 +1,5 @@
 [run]
 include =
-	pyrated/*
+	src/pyrated/*
 omit =
-	pyrated/tests/*
+	tests/*
