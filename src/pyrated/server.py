@@ -19,7 +19,7 @@ class RatelimitDef:
     """
 
     def __init__(self, value):
-        reg = r'(\d+)/(\d+)([mhd])?'
+        reg = r"(\d+)/(\d+)([mhd])?"
         match = re.match(reg, value)
         if not match:
             raise ValueError
@@ -27,15 +27,15 @@ class RatelimitDef:
         self.count = int(match.group(1))
         self.period = int(match.group(2))
 
-        if match.group(3) == 'm':
+        if match.group(3) == "m":
             self.period *= 60
-        elif match.group(3) == 'h':
+        elif match.group(3) == "h":
             self.period *= 3600
-        elif match.group(3) == 'd':
+        elif match.group(3) == "d":
             self.period *= 86400
 
     def __repr__(self):
-        return '%r/%r' % (self.count, self.period)
+        return "%r/%r" % (self.count, self.period)
 
 
 def run_in_loop(coro: Coroutine) -> asyncio.Task:  # pragma: no cover
@@ -58,19 +58,24 @@ def run_in_loop(coro: Coroutine) -> asyncio.Task:  # pragma: no cover
 
 
 def parse_args(args):
-    parser = argparse.ArgumentParser(description='python ratelimit daemon')
-    parser.add_argument('definition', type=RatelimitDef,
-                        help='The ratelimit definition ([#hits]/[period])')
-    parser.add_argument('-s', '--source', action='append',
-                        help='IP address/host to listen to')
-    parser.add_argument('-p', '--port', type=int, default=11211,
-                        help='TCP port to listen to')
+    parser = argparse.ArgumentParser(description="python ratelimit daemon")
+    parser.add_argument(
+        "definition",
+        type=RatelimitDef,
+        help="The ratelimit definition ([#hits]/[period])",
+    )
+    parser.add_argument(
+        "-s", "--source", action="append", help="IP address/host to listen to"
+    )
+    parser.add_argument(
+        "-p", "--port", type=int, default=11211, help="TCP port to listen to"
+    )
 
     args = parser.parse_args(args)
 
     # https://bugs.python.org/issue16399 -_-
     if args.source is None:
-        args.source = ['localhost']
+        args.source = ["localhost"]
 
     return args
 
@@ -101,7 +106,7 @@ async def amain(args):
 
     server = await loop.create_server(protocol_class, args.source, args.port)
     interfaces = (str(sock.getsockname()[0]) for sock in server.sockets)
-    print('Serving on %s - port %d' % (', '.join(interfaces), args.port))
+    print("Serving on %s - port %d" % (", ".join(interfaces), args.port))
 
     protocol_class.rlist.install_cleanup(loop)
     canary = close_on_cancel(server)
@@ -118,5 +123,5 @@ def main():
     run_in_loop(amain(args))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

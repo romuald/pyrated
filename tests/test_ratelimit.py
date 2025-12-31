@@ -19,6 +19,7 @@ class FakeTime:
         fake.value += 10
 
     """
+
     def __init__(self, value=1000):
         assert value > 0, "Can only use positive fake time values"
 
@@ -26,7 +27,7 @@ class FakeTime:
 
     def __enter__(self):
         if _get_fake_now() != 0:
-            raise RuntimeError('Unable to nest FakeTime')
+            raise RuntimeError("Unable to nest FakeTime")
 
         _set_fake_now(self._value)
         return self
@@ -43,7 +44,7 @@ class FakeTime:
         assert value > 0, "Can only use positive fake time values"
 
         if _get_fake_now() != 0:
-            assert value >= self.value, 'FakeTime can only increase value'
+            assert value >= self.value, "FakeTime can only increase value"
             _set_fake_now(value)
         self._value = value
 
@@ -53,11 +54,10 @@ class FakeTime:
         return self
 
     def __str__(self):
-        return 'FakeTime at %d' % self.value
+        return "FakeTime at %d" % self.value
 
 
 class TestRatelimit(unittest.TestCase):
-
     def test_actual_time(self):
         # A test without FakeTime
 
@@ -66,19 +66,19 @@ class TestRatelimit(unittest.TestCase):
 
         # 10 hits are okay
         for _ in range(10):
-            assert rl.hit('a-key') is True
-            assert rl.hit('another-key') is True
+            assert rl.hit("a-key") is True
+            assert rl.hit("another-key") is True
 
         # 11th hit fails
-        assert rl.hit('a-key') is False
-        assert rl.hit('another-key') is False
+        assert rl.hit("a-key") is False
+        assert rl.hit("another-key") is False
 
         # Waiting the whole period we can go on again
         sleep(0.1)
 
         for _ in range(10):
-            assert rl.hit('a-key') is True
-            assert rl.hit('another-key') is True
+            assert rl.hit("a-key") is True
+            assert rl.hit("another-key") is True
 
     def test_static_time(self):
         # 15 hits in 10 seconds
@@ -87,49 +87,48 @@ class TestRatelimit(unittest.TestCase):
         with FakeTime() as fake:
             # 10 hits are okay
             for _ in range(15):
-                assert rl.hit('a-key') is True
-                assert rl.hit('another-key') is True
+                assert rl.hit("a-key") is True
+                assert rl.hit("another-key") is True
 
             # 11th hit fails
-            assert rl.hit('a-key') is False
-            assert rl.hit('another-key') is False
+            assert rl.hit("a-key") is False
+            assert rl.hit("another-key") is False
 
             fake.value += 10000
 
             for _ in range(10):
-                assert rl.hit('a-key') is True
-                assert rl.hit('another-key') is True
+                assert rl.hit("a-key") is True
+                assert rl.hit("another-key") is True
 
     def test_sliding_time(self):
         # 2 hits per second
         rl = Ratelimit(2, 1)
 
         with FakeTime() as fake:
-
-            assert rl.hit('key') is True
+            assert rl.hit("key") is True
 
             fake += 100
-            assert rl.hit('key') is True
+            assert rl.hit("key") is True
 
             for _ in range(9):
-                assert rl.hit('key') is False
+                assert rl.hit("key") is False
                 fake += 100
 
-            assert rl.hit('key') is True
-            assert rl.hit('key') is False
+            assert rl.hit("key") is True
+            assert rl.hit("key") is False
 
     def test_cleanup(self):
         # 5 hits accross 10 seconds
         rl = Ratelimit(5, 10)
 
         with FakeTime() as fake:
-            rl.hit('first')
-            rl.hit('second')
+            rl.hit("first")
+            rl.hit("second")
 
             fake += 1000
 
-            rl.hit('second')
-            rl.hit('third')
+            rl.hit("second")
+            rl.hit("third")
 
             fake += 8999
             rl.cleanup()
@@ -138,13 +137,13 @@ class TestRatelimit(unittest.TestCase):
             fake += 1
             rl.cleanup()
             assert len(rl) == 2
-            assert 'first' not in rl
+            assert "first" not in rl
 
             fake += 1000
-            rl.hit('third')
+            rl.hit("third")
             rl.cleanup()
             assert len(rl) == 1
-            assert 'second' not in rl
+            assert "second" not in rl
 
             fake += 10000
             rl.cleanup()
@@ -157,7 +156,7 @@ class TestRatelimit(unittest.TestCase):
         with FakeTime() as fake:
             for _ in range(500):
                 fake += 10
-                if rl.hit('foo'):
+                if rl.hit("foo"):
                     last = fake.value
                 rl.cleanup()
                 assert len(rl) == 1
@@ -182,15 +181,15 @@ class TestRatelimit(unittest.TestCase):
         with FakeTime() as fake:
             for i in range(70):
                 # first hit of the day works
-                assert rl.hit('foo') is True
+                assert rl.hit("foo") is True
                 fake += HALFDAY
 
                 # second hit 12 hours after works
-                assert rl.hit('foo') is True
+                assert rl.hit("foo") is True
                 fake += 1000
 
                 # Third hit 1 second after doesn't
-                assert rl.hit('foo') is False
+                assert rl.hit("foo") is False
                 fake += HALFDAY - 1000
 
     def test_next_hit(self):
@@ -200,56 +199,56 @@ class TestRatelimit(unittest.TestCase):
         with FakeTime() as fake:
             # Single hit every 100ms for one second
             for i in range(10):
-                assert rl.next_hit('woot') == 0
-                assert rl.hit('woot') is True
+                assert rl.next_hit("woot") == 0
+                assert rl.hit("woot") is True
 
                 fake += 100
 
             # Can't hit at 1000ms
-            assert rl.hit('woot') is False
+            assert rl.hit("woot") is False
 
             # We have to wait 9 seconds
-            assert rl.next_hit('woot') == 9000
+            assert rl.next_hit("woot") == 9000
 
             # 500ms after that we have to wait 8.5 seoncds
             fake += 500
-            assert rl.next_hit('woot') == 8500
+            assert rl.next_hit("woot") == 8500
 
             # 8.5 seconds after that we don't have to wait
             fake += 8500
-            assert rl.next_hit('woot') == 0
+            assert rl.next_hit("woot") == 0
 
             # Hitting 50ms after
             fake += 50
-            assert rl.hit('woot') is True
+            assert rl.hit("woot") is True
 
             # We then have to wait 50ms again for the next hit
-            assert rl.next_hit('woot') == 50
+            assert rl.next_hit("woot") == 50
             fake += 50
 
-            assert rl.next_hit('woot') == 0
-            assert rl.hit('woot') is True
+            assert rl.next_hit("woot") == 0
+            assert rl.hit("woot") is True
 
     def test_serialization(self):
         base = Ratelimit(10, 10)
 
         with FakeTime() as fake:
             for i in range(9):
-                assert base.hit('foo') is True
+                assert base.hit("foo") is True
                 fake += 10
 
             copy = pickle.loads(pickle.dumps(base))
 
             # The 2 objects are distinct
-            assert base.hit('foo') is True
-            assert base.hit('foo') is False
+            assert base.hit("foo") is True
+            assert base.hit("foo") is False
 
-            assert copy.hit('foo') is True
-            assert copy.hit('foo') is False
+            assert copy.hit("foo") is True
+            assert copy.hit("foo") is False
 
-            base.hit('bar')
-            assert 'bar' in base
-            assert 'bar' not in copy
+            base.hit("bar")
+            assert "bar" in base
+            assert "bar" not in copy
 
     def test_block_size(self):
         base = Ratelimit(10, 10)
@@ -261,7 +260,7 @@ class TestRatelimit(unittest.TestCase):
         # since the implementation won't over-allocate
 
         with self.assertRaises(TypeError):
-            base.block_size = 'foo'
+            base.block_size = "foo"
 
         with self.assertRaises(TypeError):
             base.block_size = 0.5

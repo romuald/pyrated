@@ -21,13 +21,13 @@ class Ratelimit(RatelimitBase):
         self._entries = {}
 
         if count <= 0:
-            raise ValueError('count must be greater than 0 (%d)' % count)
+            raise ValueError("count must be greater than 0 (%d)" % count)
 
         if period <= 0:
-            raise ValueError('period must be greater than 0 (%d)' % period)
+            raise ValueError("period must be greater than 0 (%d)" % period)
 
         if period > 86400 * 45:
-            raise ValueError('maximum period is 45 days (%d)' % period)
+            raise ValueError("maximum period is 45 days (%d)" % period)
 
         if isinstance(block_size, float) and block_size <= 1.0:
             self.block_size = math.ceil(count * block_size)
@@ -70,10 +70,10 @@ class Ratelimit(RatelimitBase):
     @block_size.setter
     def block_size(self, value):
         if not isinstance(value, int):
-            raise TypeError('block_size is integer only')
+            raise TypeError("block_size is integer only")
 
         if value <= 0:
-            raise ValueError('block_size must be greater than 0')
+            raise ValueError("block_size must be greater than 0")
 
         self._block_size = int(value)
 
@@ -91,19 +91,19 @@ class Ratelimit(RatelimitBase):
 
     def __getstate__(self):
         ret = {
-            '_count': self._count,
-            '_period': self._period,
-            '_block_size': self._block_size,
-            '_entries': self._entries,
+            "_count": self._count,
+            "_period": self._period,
+            "_block_size": self._block_size,
+            "_entries": self._entries,
         }
 
         return ret
 
     def __setstate__(self, state):
-        self._count = state['_count']
-        self._period = state['_period']
-        self._block_size = state['_block_size']
-        self._entries = state['_entries']
+        self._count = state["_count"]
+        self._period = state["_period"]
+        self._block_size = state["_block_size"]
+        self._entries = state["_entries"]
         self._cleanup_task = None
 
     def install_cleanup(self, loop, interval=30.0):
@@ -113,7 +113,7 @@ class Ratelimit(RatelimitBase):
 
         """
         if interval < 0:
-            raise ValueError('Interval must be positive')
+            raise ValueError("Interval must be positive")
 
         if self._cleanup_task is not None:
             self._cleanup_task.cancel()
