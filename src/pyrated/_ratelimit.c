@@ -341,7 +341,7 @@ typedef struct {
 */
 static PyObject *
 RatelimitBase_hit(RatelimitBase *self, PyObject *args) {
-    PyObject *key, *result;
+    PyObject *key;
 
     if (! PyArg_ParseTuple(args, "O", &key) ) {
         return NULL;
@@ -454,16 +454,18 @@ RatelimitBase_dealloc(RatelimitBase* self)
 }
 
 static int
-RatelimitBase_traverse(RatelimitBase *self, visitproc visit, void *arg)
+RatelimitBase_traverse(PyObject *op, visitproc visit, void *arg)
 {
+    RatelimitBase *self = (RatelimitBase *)op;
     Py_VISIT(self->entries);
 
     return 0;
 }
 
 static int
-RatelimitBase_clear(RatelimitBase *self)
+RatelimitBase_clear(PyObject *op)
 {
+    RatelimitBase *self = (RatelimitBase *)op;
     Py_CLEAR(self->entries);
 
     return 0;
