@@ -1,8 +1,8 @@
-import sys
+import asyncio
 
 import pytest
 
-from pyrated.server import parse_args
+from pyrated.server import amain, parse_args
 
 
 def test_no_args(capsys):
@@ -74,3 +74,27 @@ def test_source_multiple():
 def test_source_port():
     args = parse_args(['1/1', '-p', '6700'])
     assert args.port == 6700
+
+
+@pytest.mark.asyncio
+async def test_server_main(unused_tcp_port):
+    port = unused_tcp_port
+    args = parse_args(["1/1", "-s", "localhost", "-p", str(port)])
+
+    task = asyncio.create_task(amain(args))
+    async with asyncio.timeout(1):
+        await asyncio.sleep(0.05)
+
+        reader, writer = await asyncio.open_connection('localhost', port)
+
+        writer.write(b"incr hello\r\n")
+        res = await reader.read(8)
+        assert res == b"0\r\n"
+
+        writer.write(b"incr hello\r\n")
+        res = await reader.read(8)
+        assert res == b"1\r\n"
+        writer.close()
+
+        task.cancel()
+        await task
