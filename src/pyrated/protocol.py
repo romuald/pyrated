@@ -1,11 +1,15 @@
 import asyncio
+from typing import ClassVar
+
+from pyrated.ratelimit import Ratelimit
 
 
 class MemcachedServerProtocol(asyncio.Protocol):
     _class_counter = 0
+    rlist: ClassVar[Ratelimit]
 
     @classmethod
-    def create_class(cls, rlist):
+    def create_class(cls, rlist: Ratelimit):
         """
         Allow use of distinct subclasses each sharing their own state
 
