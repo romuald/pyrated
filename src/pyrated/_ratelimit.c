@@ -35,18 +35,15 @@ static uint64_t naow(void) {
     }
 
 #ifdef __APPLE__
-    uint64_t absolute = mach_absolute_time() / (1000 * 1000);
+    uint64_t absolute = mach_absolute_time();
 
     static mach_timebase_info_data_t sTimebaseInfo;
     if ( sTimebaseInfo.denom == 0 ) {
         mach_timebase_info(&sTimebaseInfo);
     }
 
-    if ( sTimebaseInfo.numer == 1 && sTimebaseInfo.denom == 1) {
-        return absolute;
-    }
-
-    return absolute * sTimebaseInfo.numer / sTimebaseInfo.denom;
+    uint64_t ns = (absolute * sTimebaseInfo.numer / sTimebaseInfo.denom);
+    return ns / (1000 * 1000);
 #elif defined(_WIN32)
     /* Warning (from documentation)
 
