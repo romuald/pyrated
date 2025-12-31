@@ -1,8 +1,9 @@
-import io
 import asyncio
+import io
 import unittest.mock
 
 import pytest
+
 from pyrated.ratelimit import Ratelimit
 from pyrated.server import MemcachedServerProtocol
 

@@ -1,12 +1,11 @@
-import weakref
-import pickle
 import asyncio
+import pickle
 import unittest
-
+import weakref
 from time import sleep
 
+from pyrated._ratelimit import _get_fake_now, _set_fake_now
 from pyrated.ratelimit import Ratelimit
-from pyrated._ratelimit import _set_fake_now, _get_fake_now
 
 
 class FakeTime:

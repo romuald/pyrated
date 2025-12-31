@@ -1,12 +1,12 @@
-import re
-import sys
-import signal
-import asyncio
 import argparse
+import asyncio
+import re
+import signal
+import sys
 from typing import Coroutine
 
-from .ratelimit import Ratelimit
 from .protocol import MemcachedServerProtocol
+from .ratelimit import Ratelimit
 
 
 class RatelimitDef:
